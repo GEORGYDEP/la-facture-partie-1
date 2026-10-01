@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="fr-BE">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Facture — TVA et calculs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1118; --bg2:#151923; --bg3:#1d2230; --card:#181c28;
+  --accent:#22d68a; --orange:#ff8a3d; --gold:#ffc93c;
+  --text:#eef1f7; --text2:#a7aec0; --text3:#6c7488;
+  --border:#2a3042; --radius:16px; --success:#22d68a; --error:#ff4d6a;
+  --paper:#fbf8f0; --ink:#1f2633; --ink2:#5b6475; --rule:#ddd5c2;
+  --mono:'Space Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Outfit',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55;
+  background-image:radial-gradient(circle at 12% -5%,rgba(34,214,138,.09),transparent 42%),radial-gradient(circle at 95% 5%,rgba(255,138,61,.07),transparent 38%);background-attachment:fixed}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+b,strong{font-weight:700}
+
+/* ===== HUD ===== */
+.hud{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;background:rgba(14,17,24,.93);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;letter-spacing:.2px}
+.logo{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,var(--accent),#119a5f);font-size:1.15rem;box-shadow:0 0 18px rgba(34,214,138,.35)}
+.hud-right{display:flex;align-items:center;gap:7px}
+.pill{font-family:var(--mono);font-size:.8rem;padding:5px 10px;border-radius:999px;background:var(--bg3);border:1px solid var(--border);white-space:nowrap}
+.pill.hot{border-color:var(--orange);color:var(--orange)}
+.pill.pulse{animation:pulse .7s ease}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;display:grid;place-items:center}
+#globalTimer{font-family:var(--mono);font-size:.8rem;color:var(--text2);display:none}
+.xpwrap{max-width:980px;margin:0 auto;padding:12px 16px 0}
+.xprow{display:flex;justify-content:space-between;gap:10px;font-size:.82rem;color:var(--text2);margin-bottom:6px}
+.xprow b{color:var(--text)}
+.xpbar{position:relative;height:12px;border-radius:999px;background:var(--bg3);border:1px solid var(--border)}
+#xpFill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--gold));width:0;transition:width .7s ease}
+.xpmark{position:absolute;top:-4px;width:2px;height:18px;background:var(--text3);border-radius:2px}
+.xpmark.next{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.navdots{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.navdot{min-width:36px;height:28px;padding:0 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-weight:700;font-size:.8rem}
+.navdot.done{background:rgba(34,214,138,.14);border-color:var(--accent);color:var(--accent)}
+.navdot.current{border-color:var(--gold);color:var(--gold)}
+.navdot.locked{opacity:.4;cursor:not-allowed}
+
+main{max-width:980px;margin:0 auto;padding:20px 16px 90px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
+.btn{border:none;border-radius:12px;padding:12px 20px;font-weight:700;font-size:1rem;background:var(--accent);color:#08170f;transition:transform .15s ease,opacity .2s ease,background .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn.orange{background:var(--orange);color:#1f0f03}
+.btn.gold{background:var(--gold);color:#241a00}
+.btn.lb-app{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn.lb-glob{background:transparent;border:1px solid var(--orange);color:var(--orange)}
+.btn.lb-app:hover{background:var(--accent);color:#08170f}
+.btn.lb-glob:hover{background:var(--orange);color:#1f0f03}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.center{justify-content:center}
+.row.between{justify-content:space-between}
+.muted{color:var(--text2)}
+.small{font-size:.85rem}
+h1,h2,h3{line-height:1.2}
+
+/* ===== Accueil ===== */
+.welcome{display:grid;grid-template-columns:240px 1fr;gap:34px;align-items:center;padding:20px 0}
+.receipt{width:100%;max-width:240px;transform:rotate(-4deg);filter:drop-shadow(0 18px 30px rgba(0,0,0,.45))}
+.welcome h1{font-size:2.6rem;font-weight:800;letter-spacing:-.5px}
+.welcome .lead{font-size:1.15rem;color:var(--text2);margin:8px 0 18px;max-width:52ch}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center}
+.stat b{display:block;font-size:1.25rem;font-family:var(--mono)}
+.stat span{font-size:.78rem;color:var(--text2)}
+.who{font-size:.88rem;color:var(--text2);margin-bottom:16px}
+.who b{color:var(--accent)}
+
+/* ===== Parcours ===== */
+.final-banner{margin-bottom:22px}
+.path{position:relative;display:flex;flex-direction:column;gap:18px;margin:12px 0 30px}
+.path::before{content:'';position:absolute;left:50%;top:14px;bottom:14px;border-left:3px dashed var(--border);transform:translateX(-50%)}
+.prow{display:grid;grid-template-columns:1fr 64px 1fr;align-items:center;gap:14px}
+.prow .node{grid-column:2;grid-row:1;justify-self:center}
+.prow.left .pcard{grid-column:1;grid-row:1}
+.prow.right .pcard{grid-column:3;grid-row:1}
+.node{position:relative;z-index:1;width:54px;height:54px;border-radius:50%;border:3px solid var(--border);background:var(--bg2);color:var(--text);font-weight:800;font-size:1.1rem}
+.node.done{background:var(--accent);border-color:var(--accent);color:#08170f}
+.node.todo{border-color:var(--gold);color:var(--gold);animation:glow 1.8s ease-in-out infinite}
+.node.locked,.pcard.locked{opacity:.45;cursor:not-allowed}
+.pcard{text-align:left;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;color:var(--text);width:100%}
+.pcard:hover:not(.locked){border-color:var(--accent)}
+.pcard .ic{font-size:1.5rem}
+.pcard h3{font-size:1.02rem;margin:4px 0 2px}
+.pcard p{font-size:.85rem;color:var(--text2)}
+.pcard .meta{margin-top:8px;font-size:.8rem;color:var(--text2);font-family:var(--mono)}
+.stars{color:var(--gold);letter-spacing:2px}
+.section-title{font-size:1.15rem;margin:8px 0 12px}
+.trophies{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.trophy{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}
+.trophy .ti{font-size:1.8rem}
+.trophy b{display:block;font-size:.88rem;margin-top:4px}
+.trophy span{font-size:.75rem;color:var(--text2)}
+.trophy.off{opacity:.45;filter:grayscale(1)}
+.trophy.on{border-color:var(--gold);box-shadow:0 0 16px rgba(255,201,60,.18)}
+
+/* ===== Briefing ===== */
+.brief{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.brief-head{display:flex;gap:16px;align-items:center}
+.brief-head .big{font-size:2.6rem;width:74px;height:74px;display:grid;place-items:center;border-radius:18px;background:var(--bg3);border:1px solid var(--border)}
+.brief-head h2{font-size:1.5rem}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip-info{font-size:.78rem;padding:3px 9px;border-radius:999px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.goals{border-left:4px solid var(--accent)}
+.goals h3{font-size:1rem;margin-bottom:6px}
+.goals ul{padding-left:20px}
+.goals li{margin:3px 0}
+.theory p{margin-bottom:10px}
+.theory .fig{display:flex;gap:18px;align-items:center;margin:10px 0 14px;flex-wrap:wrap}
+.theory .fig svg{flex:0 0 auto}
+.theory .fig .cap{flex:1;min-width:180px;color:var(--text2);font-size:.92rem}
+.steps{counter-reset:st;list-style:none;margin:6px 0 12px}
+.steps li{counter-increment:st;position:relative;padding:8px 10px 8px 46px;margin:6px 0;background:var(--bg2);border:1px solid var(--border);border-radius:12px}
+.steps li::before{content:counter(st);position:absolute;left:10px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;background:var(--accent);color:#08170f;font-weight:800;display:grid;place-items:center;font-size:.85rem}
+.rates{width:100%;border-collapse:collapse;margin:8px 0 12px;font-size:.93rem}
+.rates td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.rates td:first-child{font-family:var(--mono);font-weight:700;color:var(--gold);width:70px}
+.tips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.tip-chip{padding:6px 12px;border-radius:10px;background:rgba(255,201,60,.08);border:1px solid rgba(255,201,60,.35);font-size:.9rem}
+.example{background:rgba(255,138,61,.08);border:1px solid rgba(255,138,61,.45);border-radius:var(--radius);padding:16px 18px}
+.example h3{color:var(--orange);font-size:.98rem;margin-bottom:6px}
+.example .calcline{font-family:var(--mono);font-size:.88rem;margin:3px 0}
+.plus{background:rgba(255,201,60,.07);border:1px dashed rgba(255,201,60,.55);border-radius:var(--radius);padding:14px 18px;font-size:.92rem}
+.plus h3{color:var(--gold);font-size:.95rem;margin-bottom:4px}
+.predict h3{font-size:1rem;margin-bottom:10px}
+.predict .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pred-btn{padding:12px 8px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-weight:600}
+.pred-btn.on{border-color:var(--gold);background:rgba(255,201,60,.12);color:var(--gold)}
+
+/* ===== Questions ===== */
+.qwrap{max-width:820px;margin:0 auto}
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.qtop .where{font-size:.88rem;color:var(--text2)}
+.qdots{display:flex;gap:6px}
+.qdot{width:14px;height:14px;border-radius:50%;background:var(--bg3);border:1px solid var(--border)}
+.qdot.correct{background:var(--success);border-color:var(--success)}
+.qdot.hint{background:var(--orange);border-color:var(--orange)}
+.qdot.shown{background:var(--error);border-color:var(--error)}
+.qdot.cur{background:var(--gold);border-color:var(--gold);box-shadow:0 0 10px var(--gold)}
+.qmeta{font-family:var(--mono);font-size:.78rem;color:var(--text3);margin-bottom:8px}
+.qtext{font-size:1.2rem;font-weight:600;margin-bottom:12px}
+.data{display:block;background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:.98rem}
+.data b{font-family:var(--mono);color:var(--gold)}
+.opts-list{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:1rem;transition:border-color .2s,background .2s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt .box{flex:0 0 22px;height:22px;border-radius:6px;border:2px solid var(--text3);display:grid;place-items:center;font-size:.8rem}
+.opt.sel{border-color:var(--gold);background:rgba(255,201,60,.08)}
+.opt.sel .box{border-color:var(--gold);background:var(--gold);color:#241a00}
+.opt.good{border-color:var(--success);background:rgba(34,214,138,.12)}
+.opt.bad{border-color:var(--error);background:rgba(255,77,106,.1)}
+.opt.missed{border:2px dashed var(--success)}
+.opt:disabled{cursor:default}
+.vf{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vf .opt{justify-content:center;font-weight:700;font-size:1.1rem;padding:18px}
+.calc .inrow{display:flex;align-items:center;gap:8px;max-width:420px}
+.calc input,.cell-in{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1.15rem;font-family:var(--mono)}
+.calc input:focus,.cell-in:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(34,214,138,.2)}
+.calc .unit{font-family:var(--mono);font-size:1.15rem;color:var(--text2)}
+.preview{min-height:1.5em;margin-top:8px;font-family:var(--mono);font-size:.9rem;color:var(--accent)}
+.helper{font-size:.82rem;color:var(--text3);margin-top:2px}
+.bank{display:flex;flex-wrap:wrap;gap:8px;padding:12px;min-height:58px;border-radius:12px;background:var(--bg2);border:1px dashed var(--border);margin-bottom:14px}
+.bank:empty::after{content:'Toutes les étiquettes sont placées.';color:var(--text3);font-size:.85rem;align-self:center}
+.chip{padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:.92rem;text-align:left}
+.chip.sel{border-color:var(--gold);background:rgba(255,201,60,.14);box-shadow:0 0 0 2px rgba(255,201,60,.3)}
+.chip.g{border-color:var(--success);background:rgba(34,214,138,.13);cursor:default}
+.chip.o{border-color:var(--orange);background:rgba(255,138,61,.13);cursor:default}
+.chip.r{border-color:var(--error);background:rgba(255,77,106,.11);cursor:default}
+.chip .corr{display:block;font-size:.78rem;color:var(--error);margin-top:2px}
+.chip.bounce{animation:bounce .5s ease}
+.zones{display:grid;grid-template-columns:repeat(var(--nz,3),1fr);gap:10px}
+.zone{min-height:140px;border-radius:14px;border:2px dashed var(--border);background:rgba(255,255,255,.02);padding:10px;display:flex;flex-direction:column;gap:6px;text-align:left;color:var(--text)}
+.zone.armed{border-color:var(--gold);background:rgba(255,201,60,.05)}
+.zone .zh{font-weight:800;font-size:.95rem;text-align:center;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.match-row{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.match-row .term{font-weight:700;padding:10px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border)}
+.match-row select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:.95rem}
+.match-row.g select{border-color:var(--success)}
+.match-row.o select{border-color:var(--orange)}
+.match-row.r select{border-color:var(--error)}
+.match-row .corr{grid-column:2;font-size:.82rem;color:var(--error);margin-top:-4px}
+.slots{list-style:none;display:grid;gap:8px;margin-bottom:14px}
+.slot{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;border-radius:12px;border:2px dashed var(--border);background:rgba(255,255,255,.02);color:var(--text);min-height:50px}
+.slot .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--bg3);display:grid;place-items:center;font-weight:800;font-family:var(--mono);font-size:.85rem}
+.slot.filled{border-style:solid}
+.slot.armed{border-color:var(--gold)}
+.slot.g{border:2px solid var(--success);background:rgba(34,214,138,.1);cursor:default}
+.slot.o{border:2px solid var(--orange);background:rgba(255,138,61,.1);cursor:default}
+.slot.r{border:2px solid var(--error);background:rgba(255,77,106,.08);cursor:default}
+.slot .ph{color:var(--text3);font-size:.88rem}
+.slot .corr{display:block;font-size:.8rem;color:var(--error)}
+.fb{margin-top:16px;padding:14px 16px;border-radius:12px;font-size:.96rem;border:1px solid}
+.fb.ok{background:rgba(34,214,138,.09);border-color:rgba(34,214,138,.5)}
+.fb.h2,.fb.hint{background:rgba(255,138,61,.09);border-color:rgba(255,138,61,.5)}
+.fb.shown{background:rgba(255,77,106,.08);border-color:rgba(255,77,106,.5)}
+.fb.info{background:var(--bg2);border-color:var(--border)}
+.fb .fbh{font-weight:800;margin-bottom:4px}
+.fb .stepline{display:block;font-family:var(--mono);font-size:.86rem;margin:3px 0}
+.qactions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+.shake{animation:shake .45s ease}
+
+/* ===== Papier : facture et bilans ===== */
+.paper{background:var(--paper);color:var(--ink);border-radius:6px;padding:22px;box-shadow:0 14px 34px rgba(0,0,0,.4);font-size:.92rem}
+.paper .inv-head{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:10px;flex-wrap:wrap}
+.paper .inv-title{text-align:right;font-weight:800;font-size:1.4rem;letter-spacing:1px}
+.paper .inv-title span{display:block;font-size:.8rem;font-weight:500;letter-spacing:0;color:var(--ink2)}
+.paper .inv-client{margin-bottom:12px;color:var(--ink2);font-size:.86rem}
+.paper .inv-client b{color:var(--ink)}
+.inv-table,.inv-sum{width:100%;border-collapse:collapse}
+.inv-table th{text-align:left;font-size:.75rem;color:var(--ink2);border-bottom:1px solid var(--rule);padding:6px 6px}
+.inv-table td{padding:7px 6px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.inv-table td.r,.inv-table th.r,.inv-sum td.r{text-align:right;font-family:var(--mono);white-space:nowrap}
+.inv-sum{margin-top:12px}
+.inv-sum td{padding:6px 6px;border-bottom:1px dotted var(--rule)}
+.inv-sum tr.strong td{font-weight:800;border-top:2px solid var(--ink);border-bottom:none;font-size:1.02rem}
+.inv-sum .op{color:var(--ink2);font-family:var(--mono);width:22px}
+.inv-sum small,.inv-table small{color:var(--ink2);font-size:.72rem}
+.paper .cell-in{width:128px;padding:6px 8px;font-size:.95rem;background:#fff;color:var(--ink);border:1.5px dashed #9aa3b2;border-radius:6px;text-align:right}
+.paper .cell-in:focus{border-style:solid;border-color:#119a5f;box-shadow:0 0 0 3px rgba(17,154,95,.18)}
+.cellv{display:inline-block;min-width:110px;padding:5px 8px;border-radius:6px;font-family:var(--mono);text-align:right}
+.cellv.g{background:#d9f6e8;color:#0d6b42}
+.cellv.o{background:#ffe8d6;color:#99470f}
+.cellv.r{background:#ffe0e5;color:#a3122d}
+.inv-prev{min-height:1.4em;margin-top:10px;font-family:var(--mono);font-size:.82rem;color:#119a5f}
+.paper .sign{margin-top:14px;font-size:.8rem;color:var(--ink2);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.paper h3{font-size:1.1rem;margin-bottom:6px}
+.crit{border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin-top:12px}
+.crit-h{display:flex;justify-content:space-between;gap:10px;font-weight:800;flex-wrap:wrap}
+.ind{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px dashed var(--rule);font-size:.9rem;flex-wrap:wrap}
+.tag{font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.tag.atteint{background:#d9f6e8;color:#0d6b42}
+.tag.encours{background:#ffe8d6;color:#99470f}
+.tag.nonatteint{background:#ffe0e5;color:#a3122d}
+.revoir{font-size:.86rem;color:var(--ink2);margin:2px 0 4px;width:100%}
+
+/* ===== Bilans ===== */
+.bilan{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.bilan-top{text-align:center}
+.medal{font-size:3.6rem;line-height:1}
+.grade{display:inline-block;margin-top:8px;font-weight:800;font-size:1.05rem;padding:6px 14px;border-radius:999px;border:1px solid var(--gold);color:var(--gold)}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:.85rem;color:var(--text2);margin:10px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.tbl{width:100%;border-collapse:collapse;font-size:.92rem}
+.tbl th,.tbl td{padding:9px 8px;border-bottom:1px solid var(--border);text-align:center}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl th{font-size:.78rem;color:var(--text2)}
+.pred-note{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:.93rem}
+
+/* ===== Effets ===== */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:9000;overflow:hidden}
+.part{position:absolute;width:8px;height:8px;border-radius:50%;animation:part .8s ease-out forwards}
+.floatxp{position:absolute;font-family:var(--mono);font-weight:700;color:var(--gold);font-size:1.15rem;text-shadow:0 0 10px rgba(255,201,60,.6);animation:floatup 1.1s ease-out forwards}
+.combo{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font-weight:800;font-size:2.2rem;color:var(--orange);text-shadow:0 0 22px rgba(255,138,61,.7);animation:combo 1s ease-out forwards;white-space:nowrap}
+.confetti{position:absolute;top:-12px;width:9px;height:14px;animation:fall linear forwards}
+#toasts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9500;pointer-events:none}
+.toast{display:flex;gap:12px;align-items:center;background:var(--bg2);border:1px solid var(--gold);border-radius:14px;padding:12px 18px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:toastin .35s ease}
+.toast .ti{font-size:1.8rem}
+.toast small{display:block;color:var(--gold);font-size:.75rem;font-weight:700}
+.overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:440px;box-shadow:0 0 40px rgba(0,0,0,.5);animation:slideup .35s ease}
+.modal.wide{max-width:620px;max-height:85vh;overflow-y:auto}
+.close-x{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text2);font-size:1.5rem}
+.rays{position:absolute;width:900px;height:900px;background:repeating-conic-gradient(rgba(255,201,60,.12) 0 10deg,transparent 10deg 20deg);border-radius:50%;animation:spin 14s linear infinite}
+.rank-card{position:relative;text-align:center;background:var(--bg2);border:2px solid var(--gold);border-radius:20px;padding:30px 34px;animation:pop .6s cubic-bezier(.2,1.4,.4,1);box-shadow:0 0 50px rgba(255,201,60,.3)}
+.rank-card .ri{font-size:4rem}
+.rank-card h2{color:var(--gold);margin:6px 0}
+#emailInput{width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;margin-bottom:12px}
+#emailError{color:var(--error);font-size:.82rem;margin-bottom:12px;min-height:1.2em}
+
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(255,201,60,.5)}50%{box-shadow:0 0 0 9px rgba(255,201,60,0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+@keyframes bounce{0%{transform:translateY(-14px);opacity:.3}60%{transform:translateY(3px);opacity:1}100%{transform:translateY(0)}}
+@keyframes part{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@keyframes floatup{from{transform:translateY(0);opacity:1}to{transform:translateY(-70px);opacity:0}}
+@keyframes combo{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}25%{transform:translate(-50%,-50%) scale(1.15);opacity:1}100%{transform:translate(-50%,-80%) scale(1);opacity:0}}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@keyframes toastin{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes slideup{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+
+@media (max-width:768px){
+  .welcome{grid-template-columns:1fr;text-align:center;gap:14px}
+  .receipt{max-width:170px;margin:0 auto}
+  .welcome .lead{margin-left:auto;margin-right:auto}
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .welcome .row{justify-content:center}
+  .trophies{grid-template-columns:repeat(2,1fr)}
+  .zones{grid-template-columns:1fr}
+  .zone{min-height:80px}
+  .match-row{grid-template-columns:1fr}
+  .match-row .corr{grid-column:1}
+}
+@media (max-width:480px){
+  .app-title{display:none}
+  .pill{font-size:.72rem;padding:4px 7px}
+  .icon-btn{width:32px;height:32px}
+  .hud{padding:8px 10px}
+  main{padding:14px 10px 90px}
+  .card{padding:16px}
+  .welcome h1{font-size:2rem}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .path::before{left:27px;transform:none}
+  .prow{grid-template-columns:54px 1fr}
+  .prow .node{grid-column:1}
+  .prow.left .pcard,.prow.right .pcard{grid-column:2}
+  .predict .opts{grid-template-columns:1fr}
+  .vf{grid-template-columns:1fr}
+  .paper{padding:14px}
+  .paper{font-size:.86rem}
+  .inv-table td,.inv-table th{padding:6px 3px}
+  .inv-table th.r{white-space:normal}
+  .inv-table td.r small{white-space:normal;display:block}
+  .paper .cell-in{width:92px;font-size:.88rem;padding:6px}
+  .cellv{min-width:0}
+  .brief-head .big{width:58px;height:58px;font-size:2rem}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+@media print{
+  body{background:#fff}
+  body *{visibility:hidden}
+  .fiche,.fiche *{visibility:visible}
+  .fiche{position:absolute;left:0;top:0;width:100%;box-shadow:none}
+  .no-print{display:none !important}
+}
+</style>
+</head>
+<body>
+
+<header class="hud">
+  <div class="brand"><span class="logo" aria-hidden="true">🧾</span><span class="app-title">La Facture</span></div>
+  <div class="hud-right">
+    <span id="globalTimer">⏱️ 00:00</span>
+    <span class="pill" id="hudStreak" title="Série de bonnes réponses">🔥 0</span>
+    <span class="pill" id="hudXP">0 XP</span>
+    <button class="icon-btn" id="soundBtn" onclick="toggleSound()" aria-label="Activer le son" title="Son">🔇</button>
+    <button class="icon-btn" onclick="goHub()" aria-label="Retour au parcours" title="Parcours">🗺️</button>
+  </div>
+</header>
+<div class="xpwrap">
+  <div class="xprow"><span id="rankLabel"></span><span id="nextLabel"></span></div>
+  <div class="xpbar"><div id="xpFill"></div><div id="xpMarks"></div></div>
+  <div class="navdots" id="navDots"></div>
+</div>
+
+<main id="main"></main>
+
+<div id="fx" aria-hidden="true"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- Montée en grade -->
+<div class="overlay" id="rankOverlay" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
+  <div class="rays" aria-hidden="true"></div>
+  <div class="rank-card">
+    <div class="ri" id="rankIcon"></div>
+    <p class="muted small">Nouveau rang débloqué</p>
+    <h2 id="rankTitle"></h2>
+    <p class="muted small" id="rankSub"></p>
+    <button class="btn gold" style="margin-top:16px" onclick="closeRankUp()">Continuer</button>
+  </div>
+</div>
+
+<!-- ===== MODAL EMAIL ===== -->
+<div class="overlay" id="emailOverlay" role="dialog" aria-modal="true" aria-labelledby="emailTitle">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:2rem;margin-bottom:12px">🎓</div>
+    <h2 id="emailTitle" style="font-size:1.3rem;margin-bottom:4px">Identification</h2>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:20px">Entre ton adresse email scolaire pour commencer.</p>
+    <input type="email" id="emailInput" placeholder="prenom.nom@eleve.istlm.be" autocomplete="email" onkeydown="if(event.key==='Enter')validateEmail()">
+    <div id="emailError"></div>
+    <button id="emailBtn" class="btn" style="width:100%" onclick="validateEmail()">✅ Vérifier et commencer</button>
+  </div>
+</div>
+
+<!-- ===== MODAL CLASSEMENT ===== -->
+<div class="overlay" id="lbOverlay" onclick="if(event.target===this)closeLB()" role="dialog" aria-modal="true" aria-label="Classement">
+  <div class="modal wide">
+    <button class="close-x" onclick="closeLB()" aria-label="Fermer">✕</button>
+    <h2 id="lbTitle" style="font-size:1.1rem;margin-bottom:14px;padding-right:30px"></h2>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button id="lbTabApp" onclick="switchLBTab('app')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#08170f;font-weight:700;font-size:.85rem">🏆 Cette application</button>
+      <button id="lbTabGlobal" onclick="switchLBTab('global')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--orange);background:transparent;color:var(--orange);font-weight:700;font-size:.85rem">🌍 Classement général</button>
+    </div>
+    <div id="lbContent"><div style="text-align:center;padding:40px;color:var(--text2)">Chargement…</div></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================
+   UTILITAIRES
+   ========================================================= */
+function evalExpr(s){
+  let e = String(s).replace(/\s|\u00a0|\u202f|€|%/g,'').replace(/×|x|X/g,'*').replace(/÷|:/g,'/').replace(/,/g,'.');
+  if (!/^[0-9+\-*/().]+$/.test(e) || !/[+\-*/]/.test(e.slice(1))) return null;
+  try { const r = Function('"use strict";return (' + e + ')')(); return (typeof r === 'number' && isFinite(r)) ? r : null; }
+  catch (err) { return null; }
+}
+function parseNum(s){
+  const r = evalExpr(s); if (r !== null) return r;
+  let t = String(s).replace(/\s|\u00a0|\u202f|€|%/g,'');
+  if (t.includes(',')) t = t.replace(/\./g,'').replace(',', '.');
+  else if ((t.match(/\./g)||[]).length > 1) t = t.replace(/\./g,'');
+  if (!/^-?\d*\.?\d+$/.test(t)) return NaN;
+  return parseFloat(t);
+}
+const NF2 = new Intl.NumberFormat('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function eur(n){ return NF2.format(n) + ' €'; }
+function num(n,max){ return new Intl.NumberFormat('fr-BE',{maximumFractionDigits:max==null?4:max}).format(n); }
+function close2(a,b){ return Math.abs(a-b) <= 0.02 + 1e-9; }
+function shuffled(n, seed){
+  const a = [...Array(n).keys()]; let s = seed;
+  for (let i = n-1; i > 0; i--) { s = (s*9301 + 49297) % 233280; const j = Math.floor(s/233280*(i+1)); [a[i],a[j]] = [a[j],a[i]]; }
+  return a;
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function prettyExpr(s){ return String(s).replace(/\*|x|X/g,' × ').replace(/\/|:/g,' ÷ ').replace(/\+/g,' + ').replace(/(\d)-/g,'$1 − ').replace(/\s+/g,' ').trim(); }
+function studentName(){
+  if (!APP.email) return 'Élève';
+  return APP.email.split('@')[0].split(/[._-]/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+function today(){ return new Date().toLocaleDateString('fr-BE',{day:'numeric',month:'long',year:'numeric'}); }
+
+/* =========================================================
+   SCHÉMAS SVG (dessinés dans le fichier, sans chiffres de réponse)
+   ========================================================= */
+function svgGrid(n){
+  let r = '';
+  for (let k = 0; k < 100; k++){
+    const x = (k%10)*22, y = Math.floor(k/10)*22;
+    r += `<rect x="${x+1}" y="${y+1}" width="20" height="20" rx="4" fill="${k<n?'#22d68a':'#262c3c'}" stroke="${k<n?'#119a5f':'#3d4558'}"/>`;
+  }
+  return `<svg viewBox="0 0 222 222" width="170" height="170" role="img" aria-label="Une grille de 100 cases dont ${n} sont colorées">${r}</svg>`;
+}
+function svgBar(left,right,bottom){
+  return `<svg viewBox="0 0 360 108" width="100%" style="max-width:420px" role="img" aria-label="${left} plus ${right} égale ${bottom}">
+    <rect x="4" y="12" width="250" height="44" rx="8" fill="rgba(34,214,138,.18)" stroke="#22d68a" stroke-width="2"/>
+    <text x="129" y="40" text-anchor="middle" fill="#eef1f7" font-size="15" font-weight="700" font-family="Outfit,sans-serif">${left}</text>
+    <rect x="258" y="12" width="98" height="44" rx="8" fill="rgba(255,138,61,.2)" stroke="#ff8a3d" stroke-width="2"/>
+    <text x="307" y="40" text-anchor="middle" fill="#eef1f7" font-size="15" font-weight="700" font-family="Outfit,sans-serif">${right}</text>
+    <path d="M4 66 v10 h352 v-10" fill="none" stroke="#ffc93c" stroke-width="2"/>
+    <text x="180" y="98" text-anchor="middle" fill="#ffc93c" font-size="15" font-weight="700" font-family="Outfit,sans-serif">${bottom}</text>
+  </svg>`;
+}
+function svgDecision(){
+  const t = (x,y,txt,o) => `<text x="${x}" y="${y}" text-anchor="middle" fill="${(o&&o.c)||'#a7aec0'}" font-size="${(o&&o.s)||14}" font-weight="${(o&&o.w)||400}" font-family="Outfit,sans-serif">${txt}</text>`;
+  return `<svg viewBox="0 0 360 232" width="100%" style="max-width:420px" role="img" aria-label="Schéma : le client récupère-t-il cet argent ? Non : il fait partie du prix, on l'ajoute avant la TVA. Oui : c'est une consigne, on l'ajoute après la TVA, sans TVA.">
+    <rect x="40" y="4" width="280" height="42" rx="10" fill="#1d2230" stroke="#ffc93c" stroke-width="2"/>
+    ${t(180,31,'Le client récupère cet argent ?',{c:'#eef1f7',s:15,w:700})}
+    <path d="M130 46 L90 86" stroke="#a7aec0" stroke-width="2" fill="none"/>
+    <path d="M230 46 L270 86" stroke="#a7aec0" stroke-width="2" fill="none"/>
+    ${t(92,70,'Non',{s:14,w:700})}${t(268,70,'Oui',{s:14,w:700})}
+    <rect x="4" y="88" width="170" height="138" rx="10" fill="rgba(34,214,138,.12)" stroke="#22d68a" stroke-width="2"/>
+    ${t(89,118,'Il fait partie',{c:'#eef1f7',s:15,w:700})}${t(89,138,'du prix',{c:'#eef1f7',s:15,w:700})}
+    ${t(89,166,"On l'ajoute")}${t(89,186,'AVANT la TVA',{c:'#22d68a',w:700})}${t(89,208,'(il est taxé)')}
+    <rect x="186" y="88" width="170" height="138" rx="10" fill="rgba(255,138,61,.12)" stroke="#ff8a3d" stroke-width="2"/>
+    ${t(271,118,"C'est une",{c:'#eef1f7',s:15,w:700})}${t(271,138,'consigne',{c:'#eef1f7',s:15,w:700})}
+    ${t(271,166,"On l'ajoute")}${t(271,186,'APRÈS la TVA',{c:'#ff8a3d',w:700})}${t(271,208,'(sans TVA)')}
+  </svg>`;
+}
+function svgReceipt(){
+  return `<svg class="receipt" viewBox="0 0 200 270" role="img" aria-label="Une facture">
+    <path d="M10 8 h180 v242 l-15 12 l-15 -12 l-15 12 l-15 -12 l-15 12 l-15 -12 l-15 12 l-15 -12 l-15 12 l-15 -12 l-15 12 l-15 -12 z" fill="#fbf8f0"/>
+    <text x="100" y="40" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="800" font-size="20" fill="#1f2633" letter-spacing="2">FACTURE</text>
+    <rect x="28" y="56" width="144" height="2" fill="#1f2633"/>
+    <g fill="#c9c1ad"><rect x="28" y="72" width="80" height="7" rx="3"/><rect x="132" y="72" width="40" height="7" rx="3"/>
+    <rect x="28" y="90" width="64" height="7" rx="3"/><rect x="132" y="90" width="40" height="7" rx="3"/>
+    <rect x="28" y="108" width="92" height="7" rx="3"/><rect x="132" y="108" width="40" height="7" rx="3"/></g>
+    <rect x="28" y="128" width="144" height="1" fill="#ddd5c2"/>
+    <text x="28" y="150" font-family="Outfit,sans-serif" font-size="12" fill="#5b6475">− réductions</text>
+    <text x="28" y="170" font-family="Outfit,sans-serif" font-size="12" fill="#5b6475">+ frais</text>
+    <text x="28" y="190" font-family="Outfit,sans-serif" font-size="12" fill="#5b6475">+ TVA</text>
+    <rect x="28" y="202" width="144" height="2" fill="#1f2633"/>
+    <text x="28" y="224" font-family="Outfit,sans-serif" font-weight="800" font-size="14" fill="#1f2633">À payer</text>
+    <rect x="122" y="212" width="50" height="16" rx="4" fill="#22d68a"/>
+    <text x="147" y="224" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="800" font-size="12" fill="#08170f">? €</text>
+  </svg>`;
+}
+
+/* =========================================================
+   CRITÈRES ET INDICATEURS (§4.11)
+   ========================================================= */
+const CRITERES = [
+  { id:'C1', nom:"Calculer avec les pourcentages et la TVA", indicateurs:[
+    { id:'I1', texte:"Je calcule un pourcentage d'un montant",
+      chapitre:"La TVA (Taxe sur la Valeur Ajoutée) — Formules de calcul de la TVA",
+      revoir:"la formule 1 (montant × taux ÷ 100) et ses 3 étapes : multiplier par le taux, puis diviser par 100." },
+    { id:'I2', texte:"Je choisis le bon taux et je calcule la TVA et le prix TVAC",
+      chapitre:"La TVA (Taxe sur la Valeur Ajoutée) — Les différents taux de TVA en Belgique",
+      revoir:"le tableau des taux (6 %, 12 %, 21 %), puis les formules 1 et 2 dans « Formules de calcul de la TVA »." },
+    { id:'I3', texte:"Je retrouve le prix HTVA et le taux de TVA à partir d'un prix TVAC",
+      chapitre:"La TVA (Taxe sur la Valeur Ajoutée) — Formules de calcul de la TVA",
+      revoir:"les formules 3 et 4 : on divise par (100 + taux), on ne retire jamais le taux du prix TVAC." }
+  ]},
+  { id:'C2', nom:"Calculer une facture dans le bon ordre", indicateurs:[
+    { id:'I4', texte:"Je reconnais les réductions et je les déduis avant la TVA",
+      chapitre:"Éléments à ajouter et/ou à retrancher — Éléments à retrancher (réductions)",
+      revoir:"la raison de chaque réduction (rabais, remise, ristourne, escompte) et le fait qu'elle se retire avant la TVA." },
+    { id:'I5', texte:"Je place les frais de port et les emballages avant ou après la TVA",
+      chapitre:"Éléments à ajouter et/ou à retrancher — Éléments à ajouter",
+      revoir:"la différence entre emballage repris et non repris, et la règle du taux le plus bas." },
+    { id:'I6', texte:"Je calcule une facture du prix brut au total à payer",
+      chapitre:"Éléments à ajouter et/ou à retrancher — Marche à suivre pour calculer une facture",
+      revoir:"le tableau des étapes, du prix brut jusqu'au total à payer." }
+  ]}
+];
+
+/* =========================================================
+   CONTENU PÉDAGOGIQUE (LEVELS)
+   ========================================================= */
+const LEVELS = [
+/* ---------------- MISSION 1 ---------------- */
+{ icon:'🔢', title:"Mission 1 — Les pourcentages, pas à pas", short:"Les pourcentages, pas à pas",
+  desc:"Comprendre un pourcentage et le calculer en 3 étapes",
+  brief:{
+    goals:["comprendre ce que veut dire un pourcentage, grâce à une image simple","calculer un pourcentage d'un montant en 3 étapes"],
+    theory:`<p>Le signe <b>%</b> veut dire <b>« sur 100 »</b>. Par exemple, <b>15 %</b>, c'est <b>15 sur 100</b> : sur chaque tranche de 100 €, on en prend 15.</p>
+      <div class="fig">${svgGrid(15)}<div class="cap">100 cases = le montant entier.<br>15 cases colorées sur 100 = <b>15 %</b>.</div></div>
+      <p><b>Méthode en 3 étapes</b> pour calculer un pourcentage d'un montant :</p>
+      <ol class="steps"><li>Je repère le <b>montant</b> de départ et le <b>taux</b> (le nombre devant le %).</li><li>Je <b>multiplie</b> le montant par le taux.</li><li>Je <b>divise</b> le résultat par 100.</li></ol>
+      <p><b>Raccourcis utiles</b> pour vérifier :</p>
+      <div class="tips"><span class="tip-chip"><b>50 %</b> = la moitié</span><span class="tip-chip"><b>10 %</b> = je divise par 10</span><span class="tip-chip"><b>1 %</b> = je divise par 100</span></div>`,
+    example:`<h3>🧮 Exemple : calculer 15 % de 60 €</h3>
+      <div class="calcline">① Montant : 60 € · taux : 15</div>
+      <div class="calcline">② 60 × 15 = 900</div>
+      <div class="calcline">③ 900 ÷ 100 = <b>9 €</b></div>
+      <p style="margin-top:6px">Vérification : 10 % de 60 €, c'est 60 ÷ 10 = 6 €. 15 %, c'est un peu plus : 9 €, c'est logique.</p>`,
+    plus:`Le signe % vient d'une ancienne abréviation italienne de <i>per cento</i>, « pour cent », que les marchands écrivaient à la main dans leurs registres. À force d'être recopiée vite, l'abréviation a fini par devenir le petit signe que l'on connaît.`
+  },
+  questions:[
+    { type:'match', ind:'I1', pts:10,
+      text:"Relie chaque calcul à son résultat.",
+      data:"Montant de départ : <b>80 €</b>",
+      pairs:[["100 % de 80 €","80 €"],["50 % de 80 €","40 €"],["25 % de 80 €","20 €"],["10 % de 80 €","8 €"],["1 % de 80 €","0,80 €"]],
+      distractors:["160 €","0,08 €"],
+      hint:"Pars de 100 % : c'est le montant entier. Quel pourcentage correspond à la moitié ? Et pour 10 %, en combien de parts égales coupes-tu le montant ?",
+      explain:"100 % = tout le montant (80 €). 50 % = la moitié (40 €) et 25 % = la moitié de la moitié (20 €). 10 % = 80 ÷ 10 = 8 €, et 1 % = 80 ÷ 100 = 0,80 €. Le double, 160 €, correspondrait à 200 %." },
+    { type:'calc', ind:'I1', pts:16, unit:'€', answer:34,
+      text:"Un magasin de vélos fait 10 % de réduction sur un casque. Combien d'euros de réduction le client reçoit-il ?",
+      data:"Prix du casque : <b>340 €</b> · Réduction : <b>10 %</b>",
+      hint:"10 %, c'est 10 sur 100, donc un dixième du montant. Par combien faut-il diviser 340 pour en prendre un dixième ?",
+      traps:[{v:330,m:"Tu as retiré 10 € du prix. Mais 10 %, ce n'est pas 10 € : c'est 10 € sur chaque tranche de 100 €. Combien de tranches de 100 € y a-t-il dans 340 € ?"},
+             {v:306,m:"Tu as calculé le nouveau prix du casque. La question demande seulement le montant de la réduction."},
+             {v:3400,m:"Tu as fait l'étape 2 (340 × 10). N'oublie pas l'étape 3 : diviser par 100."}],
+      steps:["① Montant : 340 € · taux : 10","② 340 × 10 = 3 400","③ 3 400 ÷ 100 = 34 €"],
+      explain:"Raccourci pour vérifier : 10 %, c'est diviser par 10, donc 340 ÷ 10 = 34 €." },
+    { type:'multi', ind:'I1', pts:10,
+      text:"Quels calculs donnent bien 21 % de 500 € ? Coche toutes les bonnes réponses.",
+      data:"Montant : <b>500 €</b> · Taux : <b>21 %</b>",
+      options:[{t:"500 × 21 ÷ 100",ok:true},{t:"500 × 0,21",ok:true},{t:"50 + 50 + 5 (10 % + 10 % + 1 %)",ok:true},{t:"500 + 21",ok:false},{t:"500 × 21",ok:false},{t:"500 ÷ 21",ok:false}],
+      hint:"Il y a plusieurs bonnes réponses. Un bon calcul « ramène sur 100 » : soit il divise par 100 à un moment, soit il découpe 21 % en morceaux faciles (10 %, 1 %…). Lesquels le font ?",
+      explain:"21 % de 500 € = 105 €. Trois chemins y mènent : 500 × 21 ÷ 100 (la méthode en 3 étapes), 500 × 0,21 (car 21 ÷ 100 = 0,21), et 50 + 50 + 5 (10 % vaut 50 €, deux fois, plus 1 % qui vaut 5 €). Ajouter 21, multiplier par 21 sans diviser par 100, ou diviser par 21 ne calcule pas un pourcentage." },
+    { type:'vf', ind:'I1', pts:5, answer:false,
+      text:"Vrai ou faux ? « 21 % de 200 €, ça fait 221 €. »",
+      explain:"C'est faux : on a collé 21 à 200, ce qui n'a rien à voir avec un pourcentage. Le bon calcul : 200 × 21 ÷ 100 = <b>42 €</b>. Repère simple : 21 %, c'est un peu plus que 20 %, et 20 % de 200 €, c'est 40 €." },
+    { type:'calc', ind:'I1', pts:16, unit:'€', answer:27,
+      text:"Une école garde 6 % de l'argent récolté au souper de classe pour payer la location de la salle. Combien d'euros garde-t-elle ?",
+      data:"Argent récolté : <b>450 €</b> · Part gardée : <b>6 %</b>",
+      hint:"Reprends les 3 étapes : quel est le montant de départ ? Quel est le taux ? Que fais-tu avec ces deux nombres, puis avec le résultat ?",
+      traps:[{v:2700,m:"Tu as fait l'étape 2 (450 × 6). Il manque l'étape 3 : diviser par 100."},
+             {v:444,m:"Tu as retiré 6 € au lieu de calculer 6 %."},
+             {v:456,m:"Tu as ajouté 6 au montant. Un pourcentage se calcule avec une multiplication, puis une division par 100."},
+             {v:423,m:"Tu as calculé ce qui reste après avoir retiré 6 %. La question demande la part gardée par l'école."}],
+      steps:["① Montant : 450 € · taux : 6","② 450 × 6 = 2 700","③ 2 700 ÷ 100 = 27 €"],
+      explain:"Vérification : 1 % de 450 €, c'est 450 ÷ 100 = 4,50 €. Donc 6 %, c'est 6 × 4,50 = 27 €." }
+  ]
+},
+/* ---------------- MISSION 2 ---------------- */
+{ icon:'🧾', title:"Mission 2 — La TVA, du HTVA au TVAC", short:"La TVA, du HTVA au TVAC",
+  desc:"Choisir le bon taux, calculer la TVA et le prix TVAC",
+  brief:{
+    goals:["choisir le bon taux de TVA (6 %, 12 % ou 21 %) selon ce qu'on vend","calculer le montant de la TVA, puis le prix TVAC, à partir du prix HTVA"],
+    theory:`<p>La <b>TVA</b> (taxe sur la valeur ajoutée) est une taxe que le vendeur <b>ajoute au prix</b> et qu'il reverse ensuite à l'État.</p>
+      <p><b>HTVA</b> = prix <b>sans</b> la taxe · <b>TVAC</b> = prix <b>avec</b> la taxe.</p>
+      <div class="fig">${svgBar('Prix HTVA','TVA','Prix TVAC')}</div>
+      <p><b>Les 3 taux belges</b> :</p>
+      <table class="rates"><tr><td>6 %</td><td>Produits de première nécessité (exemple : l'eau)</td></tr><tr><td>12 %</td><td>Quelques produits précis de ton tableau (exemple : la margarine)</td></tr><tr><td>21 %</td><td>Le taux normal, pour la plupart des autres produits (exemple : un meuble)</td></tr></table>
+      <p><b>Méthode en 3 étapes</b> :</p>
+      <ol class="steps"><li>Je repère le prix <b>HTVA</b> et le <b>taux</b>.</li><li>Montant de la TVA = prix HTVA × taux ÷ 100 (la méthode de la mission 1).</li><li>Prix TVAC = prix HTVA <b>+</b> montant de la TVA.</li></ol>`,
+    example:`<h3>🧮 Exemple : un carton de margarine pour une boulangerie</h3>
+      <div class="calcline">① Prix HTVA : 50 € · taux : 12</div>
+      <div class="calcline">② TVA = 50 × 12 ÷ 100 = 6 €</div>
+      <div class="calcline">③ Prix TVAC = 50 + 6 = <b>56 €</b></div>`,
+    plus:`La TVA existe dans tous les pays de l'Union européenne, mais chaque pays fixe ses propres taux. En France, le taux normal est de 20 % ; au Luxembourg, de 17 %. Un même produit n'a donc pas le même prix TVAC d'un pays à l'autre.`
+  },
+  questions:[
+    { type:'zones', ind:'I2', pts:16,
+      text:"Classe chaque achat selon son taux de TVA.",
+      zones:[{id:'6',label:'6 %'},{id:'12',label:'12 %'},{id:'21',label:'21 %'}],
+      items:[{t:"🥖 Une baguette de pain",z:'6'},{t:"📚 Un roman",z:'6'},{t:"🚌 Un ticket de bus",z:'6'},{t:"🍝 Un repas au restaurant (sans les boissons)",z:'12'},{t:"🪨 Un sac de charbon",z:'12'},{t:"📱 Un smartphone",z:'21'},{t:"👖 Un jeans",z:'21'},{t:"💄 Un rouge à lèvres",z:'21'}],
+      hint:"Pour chaque achat, demande-toi : est-ce un produit de première nécessité (6 %), un des rares produits à 12 % de ton tableau, ou un produit « normal » (21 %) ?",
+      explain:"6 % : le pain (alimentation de base), les livres et les transports en commun. 12 % : la nourriture au restaurant et le charbon. 21 % : le taux normal, pour l'électronique, les vêtements et les cosmétiques." },
+    { type:'calc', ind:'I2', pts:16, unit:'€', answer:12.6,
+      text:"Calcule le montant de la TVA sur ce jeans.",
+      data:"Jeans · Prix HTVA : <b>60 €</b> · Taux de TVA : <b>21 %</b>",
+      hint:"Sur quel prix calcule-t-on la TVA : avec ou sans la taxe ? Ensuite, c'est la même méthode qu'à la mission 1.",
+      traps:[{v:72.6,m:"Tu as calculé le prix TVAC. La question demande seulement le montant de la TVA (étape 2)."},
+             {v:81,m:"Tu as ajouté 21 € au lieu de calculer 21 %."},
+             {v:1260,m:"Tu as fait 60 × 21. N'oublie pas de diviser par 100."},
+             {v:39,m:"Tu as retiré 21 du prix. La TVA se calcule avec une multiplication, puis une division par 100."}],
+      steps:["① Prix HTVA : 60 € · taux : 21","② 60 × 21 = 1 260","③ 1 260 ÷ 100 = 12,60 € de TVA"],
+      explain:"Le montant de la TVA se calcule toujours sur le prix HTVA." },
+    { type:'qcm', ind:'I2', pts:10,
+      text:"Le vendeur ajoute la TVA au prix et la reverse à l'État. Mais au bout du compte, qui la paie vraiment ?",
+      options:["Le consommateur final, qui achète le produit pour lui","Le commerçant, qui la prend sur son bénéfice","Le fabricant, qui a produit la marchandise","Personne, car l'État la rembourse toujours"], correct:0,
+      hint:"Le commerçant ajoute la TVA à son prix de vente. Qui sort alors l'argent de sa poche pour payer ce prix TVAC ?",
+      explain:"La TVA est <b>supportée par le consommateur final</b> : c'est lui qui paie le prix TVAC. Le commerçant ne fait que la <b>collecter</b> pour le compte de l'État ; elle ne diminue pas son bénéfice, et l'État ne la rembourse pas au consommateur." },
+    { type:'calc', ind:'I2', pts:16, unit:'€', answer:19.08,
+      text:"Calcule le prix TVAC de ce livre.",
+      data:"Livre · Prix HTVA : <b>18 €</b> · Taux de TVA : <b>6 %</b>",
+      hint:"Il y a deux calculs : d'abord le montant de la TVA, puis… que fais-tu de ce montant pour passer du prix HTVA au prix TVAC ?",
+      traps:[{v:1.08,m:"Tu as trouvé le montant de la TVA : c'est la bonne première étape ! Il reste à l'ajouter au prix HTVA."},
+             {v:24,m:"Tu as ajouté 6 € au lieu de 6 %."},
+             {v:16.92,m:"Tu as retiré la TVA. Pour obtenir le prix TVAC, on l'ajoute."},
+             {v:21.78,m:"Tu as utilisé le taux de 21 %. Regarde le taux indiqué pour ce livre."}],
+      steps:["① Prix HTVA : 18 € · taux : 6","② TVA = 18 × 6 ÷ 100 = 1,08 €","③ Prix TVAC = 18 + 1,08 = 19,08 €"],
+      explain:"Le prix TVAC, c'est le prix HTVA plus le montant de la TVA." },
+    { type:'vf', ind:'I2', pts:5, answer:false,
+      text:"Vrai ou faux ? Au supermarché, un paquet de pâtes et un grille-pain sont soumis au même taux de TVA.",
+      explain:"C'est faux. Les pâtes sont une denrée alimentaire de base : <b>6 %</b>. Le grille-pain est de l'électroménager : taux normal de <b>21 %</b>. Le taux dépend du produit vendu, pas du magasin." }
+  ]
+},
+/* ---------------- MISSION 3 ---------------- */
+{ icon:'🔄', title:"Mission 3 — La TVA à l'envers", short:"La TVA à l'envers",
+  desc:"Retrouver le prix HTVA et le taux à partir d'un prix TVAC",
+  brief:{
+    goals:["retrouver le prix HTVA quand on connaît seulement le prix TVAC","retrouver le taux de TVA à partir du montant de la TVA et du prix HTVA"],
+    theory:`<p>Le prix TVAC contient <b>deux morceaux</b> : le prix HTVA, qui vaut <b>100 %</b>, et la TVA, qui vaut <b>le taux</b>.</p>
+      <div class="fig">${svgBar('Prix HTVA = 100 %','TVA = taux','Prix TVAC = 100 % + taux')}</div>
+      <p>À 12 %, le prix TVAC vaut donc <b>112 %</b> du prix HTVA. Pour revenir au prix HTVA, on fait le chemin à l'envers :</p>
+      <ol class="steps"><li>J'additionne <b>100 + le taux</b>.</li><li>Je <b>multiplie</b> le prix TVAC par 100.</li><li>Je <b>divise</b> par le nombre trouvé à l'étape 1.</li></ol>
+      <p><b>Pour retrouver le taux</b> : taux = montant de la TVA × 100 ÷ prix HTVA.</p>`,
+    example:`<h3>🧮 Exemple : un carton de margarine vendu 84 € TVAC, taux de 12 %</h3>
+      <div class="calcline">① 100 + 12 = 112</div>
+      <div class="calcline">② 84 × 100 = 8 400</div>
+      <div class="calcline">③ 8 400 ÷ 112 = <b>75 € HTVA</b></div>
+      <p style="margin-top:6px">Vérification : 75 × 12 ÷ 100 = 9 € de TVA, et 75 + 9 = 84 € ✓<br>Et le taux : 9 × 100 ÷ 75 = 12 % ✓</p>`,
+    plus:`Sur un ticket de caisse, les prix affichés sont TVAC. En bas du ticket, le magasin indique souvent, taux par taux, quelle part de ce que tu as payé correspond à la TVA. Regarde ton prochain ticket !`
+  },
+  questions:[
+    { type:'vf', ind:'I3', pts:5, answer:false,
+      text:"Vrai ou faux ? Pour retrouver le prix HTVA, il suffit de retirer 21 % du prix TVAC.",
+      explain:"C'est faux, et c'est le piège le plus fréquent ! Les 21 % ont été calculés sur le prix <b>HTVA</b>, pas sur le prix TVAC. Exemple : 100 € HTVA + 21 € de TVA = 121 € TVAC. Si on retire 21 % de 121 €, on retire 25,41 € et on tombe sur 95,59 €, pas sur 100 €. Il faut multiplier par 100, puis diviser par (100 + taux)." },
+    { type:'qcm', ind:'I3', pts:10,
+      text:"Quel est le prix HTVA de ce vélo ?",
+      data:"Vélo · Prix TVAC : <b>605 €</b> · Taux de TVA : <b>21 %</b>",
+      options:["500 €","477,95 €","584 €","732,05 €"], correct:0,
+      hint:"Le prix TVAC vaut 121 % du prix HTVA. Après avoir multiplié par 100, par quel nombre dois-tu diviser pour revenir aux 100 % du départ ?",
+      explain:"605 × 100 ÷ 121 = <b>500 €</b>. Vérification : 500 × 21 ÷ 100 = 105 € de TVA, et 500 + 105 = 605 € ✓. Les pièges : 477,95 € vient de « retirer 21 % de 605 € » (les 21 % calculés sur le mauvais prix) ; 584 € vient de « retirer 21 € » ; 732,05 € vient d'avoir ajouté la TVA une deuxième fois." },
+    { type:'calc', ind:'I3', pts:16, unit:'€', answer:30,
+      text:"Calcule le prix HTVA de ce t-shirt.",
+      data:"T-shirt · Prix TVAC : <b>36,30 €</b> · Taux de TVA : <b>21 %</b>",
+      hint:"Commence par l'étape 1 : à combien de « % » correspond le prix TVAC quand le taux est de 21 % ? C'est par ce nombre que tu divises à la fin.",
+      traps:[{v:28.68,m:"Tu as retiré 21 % du prix TVAC : c'est le piège de la première question ! Les 21 % se calculent sur le prix HTVA. Multiplie plutôt par 100, puis divise par 121."},
+             {v:15.3,m:"Tu as retiré 21 € : ce n'est pas un pourcentage."},
+             {v:43.92,m:"Tu as ajouté la TVA au lieu de revenir au prix sans TVA."},
+             {v:6.3,m:"Tu as trouvé le montant de la TVA comprise dans le prix. La question demande le prix HTVA."}],
+      steps:["① 100 + 21 = 121","② 36,30 × 100 = 3 630","③ 3 630 ÷ 121 = 30 €"],
+      explain:"Vérification : 30 × 21 ÷ 100 = 6,30 € de TVA, et 30 + 6,30 = 36,30 € ✓" },
+    { type:'multi', ind:'I3', pts:10,
+      text:"Quels calculs donnent le prix HTVA de cette lampe ? Coche toutes les bonnes réponses.",
+      data:"Lampe · Prix TVAC : <b>242 €</b> · Taux de TVA : <b>21 %</b>",
+      options:[{t:"242 × 100 ÷ 121",ok:true},{t:"242 ÷ 1,21",ok:true},{t:"242 − 21",ok:false},{t:"242 × 21 ÷ 100",ok:false},{t:"242 − (242 × 21 ÷ 100)",ok:false}],
+      hint:"Il y a plus d'une bonne réponse. Le prix TVAC vaut 121 % du prix HTVA : les bons calculs reviennent de 121 % à 100 %. Lesquels le font, même écrits autrement ?",
+      explain:"Le prix HTVA est de 200 €. Deux écritures y mènent : 242 × 100 ÷ 121 (la méthode en 3 étapes) et 242 ÷ 1,21 (car 121 ÷ 100 = 1,21). Retirer 21 €, calculer 21 % du prix TVAC ou retirer ces 21 % du prix TVAC donne un résultat faux, car les 21 % portent sur le prix HTVA." },
+    { type:'calc', ind:'I3', pts:16, unit:'%', answer:6,
+      text:"Quel est le taux de TVA appliqué sur ce livre de cuisine ?",
+      data:"Livre de cuisine · Prix HTVA : <b>80 €</b> · Montant de la TVA : <b>4,80 €</b>",
+      hint:"On cherche combien d'euros de TVA il y a « sur 100 € » de prix HTVA. Tu multiplies le montant de la TVA par 100… puis tu divises par quel prix ?",
+      traps:[{v:16.67,m:"Tu as divisé le prix par la TVA : c'est l'inverse. On part du montant de la TVA."},
+             {v:0.06,m:"Presque ! Tu as divisé 4,80 par 80, mais tu as oublié de multiplier par 100 pour obtenir un pourcentage."},
+             {v:384,m:"Tu as multiplié 4,80 par 80. Il faut diviser par le prix HTVA."}],
+      steps:["Taux = TVA × 100 ÷ prix HTVA","① 4,80 × 100 = 480","② 480 ÷ 80 = 6 %"],
+      explain:"C'est logique : un livre est au taux de 6 %." }
+  ]
+},
+/* ---------------- MISSION 4 ---------------- */
+{ icon:'✂️', title:"Mission 4 — Les réductions, avant la TVA", short:"Les réductions, avant la TVA",
+  desc:"Reconnaître rabais, remise, ristourne et les retirer avant la TVA",
+  brief:{
+    goals:["reconnaître les réductions (rabais, remise, ristourne, escompte) d'après leur raison","retirer une réduction du prix brut avant de calculer la TVA"],
+    theory:`<p>Un fournisseur accorde toujours une réduction <b>pour une raison</b> : un problème avec la marchandise ou la livraison, une grosse quantité achetée, un client fidèle toute l'année, ou un paiement rapide. Pour reconnaître la réduction, demande-toi <b>pourquoi</b> le vendeur fait ce geste.</p>
+      <p>La réduction se retire <b>avant</b> de calculer la TVA : la taxe se calcule sur le prix réellement payé.</p>
+      <p><b>Méthode en 4 étapes</b> :</p>
+      <ol class="steps"><li>Prix brut = quantité × prix unitaire.</li><li>Montant de la réduction = prix brut × taux ÷ 100.</li><li>Prix net HTVA = prix brut <b>−</b> réduction.</li><li>TVA calculée sur le <b>prix net</b>, puis prix TVAC = prix net + TVA.</li></ol>`,
+    example:`<h3>🧮 Exemple : 20 boîtes de crayons à 10 € HTVA, réduction de 5 %, TVA de 21 %</h3>
+      <div class="calcline">① Prix brut = 20 × 10 = 200 €</div>
+      <div class="calcline">② Réduction = 200 × 5 ÷ 100 = 10 €</div>
+      <div class="calcline">③ Prix net HTVA = 200 − 10 = 190 €</div>
+      <div class="calcline">④ TVA = 190 × 21 ÷ 100 = 39,90 € → TVAC = <b>229,90 €</b></div>`,
+    plus:`Quand plusieurs réductions se suivent sur une même facture, chacune se calcule sur le montant déjà réduit. Une réduction de 10 % suivie d'une de 5 % ne fait donc pas tout à fait 15 % : la deuxième porte sur un montant plus petit.`
+  },
+  questions:[
+    { type:'match', ind:'I4', pts:8,
+      text:"Relie chaque réduction à sa raison.",
+      pairs:[["Rabais","Un défaut de qualité ou un retard de livraison"],["Remise","Une grosse quantité achetée"],["Ristourne","Le total des achats d'un client sur toute une période"],["Escompte","Un paiement avant la date d'échéance"]],
+      distractors:["Les frais de transport de la marchandise","Une taxe collectée pour le compte de l'État"],
+      hint:"Repense à la question « pourquoi ? ». Laquelle de ces réductions arrive seulement à la fin d'une période ? Laquelle récompense un client qui paie vite ?",
+      explain:"Rabais = un problème (défaut, retard). Remise = une grosse quantité. Ristourne = en fin de période, sur le total des achats. Escompte = un paiement anticipé, avant l'échéance. Les frais de transport et la taxe ne sont pas des réductions." },
+    { type:'qcm', ind:'I4', pts:10,
+      text:"Un fournisseur livre 30 chaises, dont 3 sont rayées. Le client accepte de garder ces 3 chaises si leur prix baisse. Comment s'appelle cette réduction ?",
+      options:["Un rabais","Une remise","Une ristourne","Un escompte"], correct:0,
+      hint:"Pourquoi le vendeur baisse-t-il son prix ici : une grosse quantité, un client fidèle, un paiement rapide… ou un problème avec la marchandise ?",
+      explain:"C'est un <b>rabais</b> : il compense un <b>défaut de qualité</b> (les chaises rayées). Une remise récompenserait une grosse quantité, une ristourne la fidélité sur une période, un escompte un paiement rapide." },
+    { type:'calc', ind:'I4', pts:16, unit:'€', answer:540,
+      text:"Calcule le prix net HTVA de cette commande, après la remise.",
+      data:"50 calculatrices à <b>12 €</b> HTVA pièce · Remise : <b>10 %</b>",
+      hint:"Commence par l'étape 1 : quel est le prix brut de toute la commande (quantité × prix unitaire) ? Ensuite, calcule 10 % de ce prix brut.",
+      traps:[{v:600,m:"Tu as trouvé le prix brut : bonne première étape ! Il reste à calculer la remise et à la retirer."},
+             {v:60,m:"Tu as trouvé le montant de la remise. Il faut maintenant la retirer du prix brut."},
+             {v:590,m:"Tu as retiré 10 € au lieu de 10 %."},
+             {v:10.8,m:"Tu as appliqué la remise sur une seule calculatrice. Le prix net concerne toute la commande."},
+             {v:653.4,m:"Tu as ajouté la TVA. La question s'arrête au prix net HTVA."}],
+      steps:["① Prix brut = 50 × 12 = 600 €","② Remise = 600 × 10 ÷ 100 = 60 €","③ Prix net HTVA = 600 − 60 = 540 €"],
+      explain:"La remise se calcule sur le prix brut de toute la commande." },
+    { type:'vf', ind:'I4', pts:5, answer:false,
+      text:"Vrai ou faux ? Le client paie sa facture avant la date d'échéance et reçoit 2 % de réduction : cette réduction s'appelle une remise.",
+      explain:"C'est faux. Une réduction pour un paiement anticipé, avant l'échéance, s'appelle un <b>escompte</b>. La <b>remise</b>, elle, récompense une grosse quantité achetée." },
+    { type:'calc', ind:'I4', pts:16, unit:'€', answer:344.85,
+      text:"Calcule le montant TVAC de cette facture.",
+      data:"12 ballons à <b>25 €</b> HTVA pièce · Ristourne de fin d'année : <b>5 %</b> · TVA : <b>21 %</b>",
+      hint:"Suis les 4 étapes dans l'ordre : prix brut, ristourne, prix net HTVA, puis TVA. As-tu bien calculé la TVA sur le prix net, après avoir retiré la ristourne ?",
+      traps:[{v:285,m:"Tu as trouvé le prix net HTVA : il reste à calculer la TVA sur ce montant et à l'ajouter."},
+             {v:59.85,m:"Tu as trouvé le montant de la TVA. Ajoute-le maintenant au prix net HTVA."},
+             {v:348,m:"Tu as calculé la TVA sur le prix brut, avant de retirer la ristourne. La TVA se calcule sur le prix net."},
+             {v:363,m:"Tu as oublié de retirer la ristourne."},
+             {v:300,m:"Tu as trouvé le prix brut. Continue : ristourne, prix net, puis TVA."}],
+      steps:["① Prix brut = 12 × 25 = 300 €","② Ristourne = 300 × 5 ÷ 100 = 15 €","③ Prix net HTVA = 300 − 15 = 285 €","④ TVA = 285 × 21 ÷ 100 = 59,85 € → TVAC = 285 + 59,85 = 344,85 €"],
+      explain:"La ristourne est retirée avant la TVA : la taxe porte sur le prix net." }
+  ]
+},
+/* ---------------- MISSION 5 ---------------- */
+{ icon:'📦', title:"Mission 5 — Les ajouts et la facture complète", short:"Les ajouts et la facture complète",
+  desc:"Port, emballages, puis une vraie facture de A à Z",
+  brief:{
+    goals:["placer les frais de port et les emballages avant ou après la TVA","calculer une facture complète, du prix brut au total à payer"],
+    theory:`<p>Sur une facture, certains montants s'<b>ajoutent</b> au prix des marchandises. Dans la vie de tous les jours : au supermarché, les bouteilles <b>consignées</b> coûtent un petit supplément, que tu récupères en rapportant les vides.</p>
+      <p>Pour chaque frais ajouté, pose-toi une seule question : <b>le client récupérera-t-il cet argent ?</b></p>
+      <div class="fig">${svgDecision()}</div>
+      <p>Ensuite, c'est toi qui reconstruis toute la facture. Les deux dernières questions n'ont volontairement pas de rappel : tout a été vu dans les missions précédentes.</p>`,
+    example:`<h3>🧮 Exemple</h3>
+      <p>Un fleuriste facture 2 € pour un vase que le client emporte et garde. Cet argent ne lui sera jamais rendu : le vase fait partie du prix, il est ajouté <b>avant</b> la TVA et il est taxé avec le reste.</p>`,
+    plus:`Sur une vraie facture belge, d'autres mentions sont obligatoires : le numéro BCE, le numéro de TVA et le numéro IBAN du vendeur, la date d'échéance, le rappel de la commande… Tu les retrouves au début de ta fiche.`
+  },
+  questions:[
+    { type:'zones', ind:'I5', pts:14,
+      text:"Où place-t-on chaque montant dans le calcul de la facture ?",
+      zones:[{id:'moins',label:'➖ À retirer avant la TVA'},{id:'avant',label:'➕ À ajouter avant la TVA'},{id:'apres',label:'➕ À ajouter après la TVA'}],
+      items:[{t:"Remise de 10 % pour une grosse commande",z:'moins'},{t:"Rabais pour un retard de livraison",z:'moins'},{t:"Frais de port (transport par camion)",z:'avant'},{t:"Cartons jetables, non repris",z:'avant'},{t:"Palette en bois que le client garde",z:'avant'},{t:"Caisses en plastique consignées",z:'apres'},{t:"Bacs repris par le fournisseur",z:'apres'}],
+      hint:"Pour chaque montant : est-ce une réduction ? Sinon, le client récupérera-t-il cet argent un jour ?",
+      explain:"Les réductions (remise, rabais) se retirent avant la TVA. Les frais de port et les emballages non repris (cartons, palette gardée) font partie du prix : on les ajoute avant la TVA. Les emballages repris ou consignés (caisses, bacs) seront remboursés : on les ajoute après la TVA, sans TVA." },
+    { type:'vf', ind:'I5', pts:5, answer:false,
+      text:"Vrai ou faux ? Une facture contient des livres (TVA à 6 %) et des cahiers (TVA à 21 %). Les frais de port de cette facture sont soumis au taux de 21 %.",
+      explain:"C'est faux. Quand une facture mélange plusieurs taux de TVA, les frais de port et d'emballage sont toujours soumis au <b>taux le plus bas</b> : ici, <b>6 %</b>." },
+    { type:'order', ind:'I6', pts:12,
+      text:"Remets dans l'ordre les étapes du calcul d'une facture.",
+      steps:["Quantité × prix unitaire = prix brut","Retirer les réductions = prix net HTVA","Ajouter le port et l'emballage non repris = montant taxable","Calculer la TVA sur le montant taxable","Ajouter la TVA = sous-total","Ajouter l'emballage repris (consigné) = total à payer"],
+      distractors:["Retirer la TVA du prix brut","Calculer la TVA sur le prix brut"],
+      hint:"Une facture va du plus simple au plus complet. Que doit-on connaître avant de pouvoir calculer la TVA ? Et qu'est-ce qui arrive après, sans TVA ?",
+      explain:"Prix brut → réductions → prix net HTVA → port et emballage non repris → montant taxable → TVA → sous-total → emballage consigné → total à payer. Tout ce qui est taxé passe avant la TVA ; la consigne arrive tout à la fin." },
+    { type:'invoice', ind:'I6', pts:32,
+      text:"Complète la facture case par case. La première ligne est déjà calculée pour te montrer l'exemple.",
+      cells:[{id:'l2',answer:150},{id:'brut',answer:290},{id:'rem',answer:29},{id:'net',answer:261},{id:'tax',answer:280},{id:'tva',answer:58.8},{id:'sous',answer:338.8},{id:'tot',answer:348.8}],
+      hint:"Avance dans l'ordre des étapes : chaque case se calcule avec les cases au-dessus d'elle. Vérifie surtout sur quel montant tu calcules la remise, puis la TVA.",
+      steps:["Agendas : 25 × 6 = 150 €","Prix brut : 140 + 150 = 290 €","Remise : 290 × 10 ÷ 100 = 29 €","Prix net HTVA : 290 − 29 = 261 €","Montant taxable : 261 + 15 + 4 = 280 €","TVA : 280 × 21 ÷ 100 = 58,80 €","Sous-total : 280 + 58,80 = 338,80 €","Total à payer : 338,80 + 10 = 348,80 €"],
+      explain:"Les caisses consignées sont ajoutées tout à la fin, sans TVA." }
+  ]
+}
+];
+
+/* =========================================================
+   CONSTANTES DÉRIVÉES (jamais écrites à la main)
+   ========================================================= */
+const TYPE_LABEL = {qcm:'QCM',vf:'Vrai / Faux',multi:'Sélection multiple',calc:'Réponse à écrire',zones:'Classement',match:'Appariement',order:'Remise en ordre',invoice:'Facture à compléter'};
+const DUR = {qcm:40,vf:20,multi:60,calc:90,zones:90,match:60,order:60,invoice:210};
+const BRIEF_SEC = 60;
+const DECALAGE = [2,0,3,1, 1,3,0,2, 3,1,2,0, 0,2,1,3, 2,3,0,1];
+(function melangerPropositions(liste){
+  let k = 0;
+  liste.forEach(q => {
+    if (q.type !== 'qcm') return;
+    const t = DECALAGE[k++ % DECALAGE.length];
+    for (let n = 0; n < t; n++){ q.options.unshift(q.options.pop()); q.correct = (q.correct + 1) % q.options.length; }
+  });
+})(LEVELS.flatMap(lv => lv.questions));
+LEVELS.forEach(lv => { lv.maxPoints = lv.questions.reduce((s,q) => s + q.pts, 0); });
+const TOTAL_XP = LEVELS.reduce((s,lv) => s + lv.maxPoints, 0);
+const TOTAL_Q  = LEVELS.reduce((s,lv) => s + lv.questions.length, 0);
+const EST_SEC  = LEVELS.reduce((s,lv) => s + BRIEF_SEC + lv.questions.reduce((t,q) => t + DUR[q.type], 0), 0);
+const EST_MIN  = Math.round(EST_SEC / 60);
+
+const RANKS = [
+  {p:0,   icon:'🎒', name:'Stagiaire'},
+  {p:.20, icon:'🧾', name:'Aide-facturier'},
+  {p:.45, icon:'🧮', name:'Facturier'},
+  {p:.65, icon:'📊', name:'Comptable'},
+  {p:.85, icon:'👑', name:'Chef de la facturation'}
+].map(r => Object.assign(r,{xp:Math.ceil(r.p*TOTAL_XP)}));
+
+const BADGES = [
+  {id:'m1',      icon:'🚀', name:'Premier pas',      cond:"Terminer la mission 1"},
+  {id:'streak5', icon:'🔥', name:'En feu',           cond:"5 bonnes réponses d'affilée"},
+  {id:'streak10',icon:'⚡', name:'Inarrêtable',      cond:"10 bonnes réponses d'affilée"},
+  {id:'perfect', icon:'💯', name:'Sans faute',       cond:"Toute une mission réussie du premier coup"},
+  {id:'tva',     icon:'🧾', name:'Expert TVA',       cond:"80 % des XP ou plus aux missions 2 et 3"},
+  {id:'pred',    icon:'🎯', name:'Bien estimé',      cond:"Une prédiction de score juste"},
+  {id:'invoice', icon:'🧮', name:'Facture parfaite', cond:"La facture finale juste dès la 1re vérification"},
+  {id:'end',     icon:'🏁', name:'Facture bouclée',  cond:"Terminer les 5 missions"}
+];
+const PRED = { half:{v:.5,label:"Environ la moitié 😅"}, three:{v:.75,label:"Les trois quarts 💪"}, all:{v:1,label:"Toutes ! 🏆"} };
+
+/* =========================================================
+   ÉTAT UNIQUE
+   ========================================================= */
+const APP = {
+  screen:'welcome', level:null, q:0, qs:{},
+  score:0, streak:0, bestStreak:0, done:{}, pred:{}, badges:new Set(), rankIdx:0,
+  sound:false, timerLevel:null, shake:false,
+  lastClick:{x:window.innerWidth/2, y:window.innerHeight/2},
+  // tracking
+  email: lsGet('student_email') || '', classe: lsGet('student_classe') || '',
+  exerciseStartTime:null, exerciseTimes:{}, exerciseScores:{}, scoreBeforeExercise:0,
+  globalTimerStart:null, globalTimerInterval:null, completedExercises:[]
+};
+function getQ(lv,q){ const raw = LEVELS[lv].questions[q]; if (raw.variants) return Object.assign({}, raw, raw.variants[APP.scenario]); return raw; }
+function st(l,i){
+  const k = l + '_' + i;
+  if (!APP.qs[k]) APP.qs[k] = {tries:0,status:null,earned:0,fb:null,wrong:[],sel:[],value:'',placed:{},lock:{},checks:0,selected:null,slots:[],vals:{},returned:[],choice:null};
+  return APP.qs[k];
+}
+function isLocked(l){ return l > 0 && !APP.done[l-1]; }
+
+/* =========================================================
+   MACHINE À ÉTATS
+   ========================================================= */
+function setScreen(name){ APP.screen = name; renderScreen(); renderNav(); window.scrollTo({top:0,behavior:'smooth'}); }
+function renderScreen(){
+  const m = document.getElementById('main');
+  switch (APP.screen){
+    case 'welcome':  m.innerHTML = renderWelcome(); break;
+    case 'hub':      m.innerHTML = renderHub(); break;
+    case 'brief':    m.innerHTML = renderBrief(APP.level); break;
+    case 'question': m.innerHTML = renderQuestion(APP.level, APP.q); break;
+    case 'bilan':    m.innerHTML = renderBilan(APP.level); break;
+  }
+  if (APP.screen === 'question'){
+    st(APP.level, APP.q).returned = [];
+    if (APP.shake){ const c = document.getElementById('qcard'); if (c){ c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); } }
+  }
+  APP.shake = false;
+  updateHUD();
+}
+function renderNav(){
+  const box = document.getElementById('navDots');
+  box.innerHTML = LEVELS.map((lv,l) => {
+    const locked = isLocked(l), done = !!APP.done[l], cur = (APP.screen==='brief'||APP.screen==='question'||APP.screen==='bilan') && APP.level===l;
+    const cls = 'navdot' + (locked?' locked':'') + (done?' done':'') + (cur?' current':'');
+    return `<button class="${cls}" ${locked?'disabled aria-disabled="true"':''} onclick="openLevel(${l})" aria-label="Mission ${l+1}${done?' terminée':locked?' verrouillée':''}">${done?'✓':locked?'🔒':l+1}</button>`;
+  }).join('');
+}
+function updateHUD(){
+  document.getElementById('hudXP').textContent = fmtXP(APP.score) + ' XP';
+  const sk = document.getElementById('hudStreak');
+  sk.textContent = '🔥 ' + APP.streak; sk.classList.toggle('hot', APP.streak >= 3);
+  const pct = Math.min(100, APP.score / TOTAL_XP * 100);
+  document.getElementById('xpFill').style.width = pct + '%';
+  let idx = 0; RANKS.forEach((r,k) => { if (APP.score >= r.xp) idx = k; });
+  const r = RANKS[idx], nx = RANKS[idx+1];
+  document.getElementById('rankLabel').innerHTML = `${r.icon} <b>${r.name}</b>`;
+  document.getElementById('nextLabel').textContent = nx ? `prochain rang à ${nx.xp} XP` : 'rang maximum atteint 👑';
+  document.getElementById('xpMarks').innerHTML = RANKS.slice(1).map((x,k) =>
+    `<span class="xpmark${nx && x.xp===nx.xp?' next':''}" style="left:${x.p*100}%" title="${x.icon} ${x.name} : ${x.xp} XP"></span>`).join('');
+  if (idx > APP.rankIdx){ APP.rankIdx = idx; showRankUp(r); }
+}
+function fmtXP(n){ return Number.isInteger(n) ? String(n) : num(n,1); }
+
+/* =========================================================
+   ÉCRAN D'ACCUEIL
+   ========================================================= */
+function renderWelcome(){
+  return `<section class="welcome">
+    <div>${svgReceipt()}</div>
+    <div>
+      <h1>La Facture</h1>
+      <p class="lead">Pourcentages, TVA, réductions et frais : entraîne-toi à calculer une facture, étape par étape, jusqu'au total à payer.</p>
+      <div class="stats">
+        <div class="stat"><b>${LEVELS.length}</b><span>missions</span></div>
+        <div class="stat"><b>${TOTAL_Q}</b><span>questions</span></div>
+        <div class="stat"><b>${TOTAL_XP}</b><span>XP à gagner</span></div>
+        <div class="stat"><b>${BADGES.length}</b><span>badges</span></div>
+        <div class="stat"><b>⏱️ ${EST_MIN}</b><span>minutes environ</span></div>
+      </div>
+      <p class="who">${APP.email ? `Connecté·e : <b>${esc(APP.email)}</b>${APP.classe?' · classe <b>'+esc(APP.classe)+'</b>':''}` : 'Identifie-toi pour commencer.'}</p>
+      <div class="row"><button class="btn" onclick="setScreen('hub')">Commencer ➜</button></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn lb-app" onclick="openLB('app')">🏆 Classement</button>
+        <button class="btn lb-glob" onclick="openLB('global')">🌍 Général</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* =========================================================
+   PARCOURS (HUB)
+   ========================================================= */
+function renderHub(){
+  let h = '';
+  if (LEVELS.every((_,l) => APP.done[l])) h += renderFinal();
+  h += `<h2 class="section-title">🗺️ Ton parcours</h2><div class="path">`;
+  LEVELS.forEach((lv,l) => {
+    const locked = isLocked(l), d = APP.done[l];
+    const nodeCls = d ? 'done' : locked ? 'locked' : 'todo';
+    const meta = d ? `<span class="stars">${starStr(d.ratio)}</span> &nbsp;${fmtXP(d.pts)} / ${lv.maxPoints} XP`
+                   : `${lv.questions.length} questions · ${lv.maxPoints} XP à gagner`;
+    h += `<div class="prow ${l%2?'right':'left'}">
+      <button class="node ${nodeCls}" onclick="openLevel(${l})" ${locked?'disabled aria-disabled="true"':''} aria-label="Mission ${l+1}">${d?'✓':locked?'🔒':l+1}</button>
+      <button class="pcard${locked?' locked':''}" onclick="openLevel(${l})" ${locked?'disabled aria-disabled="true"':''}>
+        <span class="ic">${lv.icon}</span><h3>${lv.short}</h3><p>${lv.desc}</p><div class="meta">${meta}</div>
+      </button></div>`;
+  });
+  h += `</div><h2 class="section-title">🏆 Vitrine à trophées <span class="muted small">(${APP.badges.size} / ${BADGES.length})</span></h2>
+    <div class="trophies">${BADGES.map(b => `<div class="trophy ${APP.badges.has(b.id)?'on':'off'}"><div class="ti">${b.icon}</div><b>${b.name}</b><span>${b.cond}</span></div>`).join('')}</div>`;
+  return h;
+}
+function starStr(r){ const n = r>=.85?3:r>=.65?2:r>=.45?1:0; return '★'.repeat(n) + '☆'.repeat(3-n); }
+
+function openLevel(l){
+  if (l == null || isLocked(l)) return;
+  APP.level = l;
+  if (APP.done[l]) { setScreen('bilan'); return; }
+  if (APP.timerLevel !== l && !APP.completedExercises.includes(l)) { startExerciseTimer(l); APP.timerLevel = l; }
+  setScreen('brief');
+}
+function goHub(){ setScreen('hub'); }
+
+/* =========================================================
+   BRIEFING
+   ========================================================= */
+function renderBrief(l){
+  const lv = LEVELS[l], b = lv.brief, started = lv.questions.some((_,i) => APP.qs[l+'_'+i]);
+  const p = APP.pred[l];
+  return `<section class="brief">
+    <div class="brief-head"><div class="big">${lv.icon}</div><div>
+      <p class="muted small">Mission ${l+1} sur ${LEVELS.length}</p><h2>${lv.short}</h2>
+      <div class="chips"><span class="chip-info">${lv.questions.length} questions</span><span class="chip-info">${lv.maxPoints} XP en jeu</span></div></div></div>
+    <div class="card goals"><h3>🎯 À la fin de cette mission, tu sauras…</h3><ul>${b.goals.map(g => `<li>${g}</li>`).join('')}</ul></div>
+    <div class="card theory">${b.theory}</div>
+    <div class="example">${b.example}</div>
+    <div class="plus"><h3>✨ Pour aller plus loin</h3>${b.plus}<p class="small muted" style="margin-top:6px">Ce bonus n'est pas évalué.</p></div>
+    <div class="card predict"><h3>🔮 Combien de questions penses-tu réussir du premier coup ?</h3>
+      <div class="opts">${Object.keys(PRED).map(k => `<button class="pred-btn${p===k?' on':''}" data-pred="${k}" onclick="setPred(${l},'${k}')" ${started&&p?'disabled':''}>${PRED[k].label}</button>`).join('')}</div></div>
+    <div class="row between">
+      <button class="btn ghost" onclick="goHub()">← Parcours</button>
+      <button class="btn" id="startBtn" onclick="startLevel(${l})" ${p?'':'disabled'}>${started?'Reprendre ➜':"C'est parti ➜"}</button>
+    </div>
+  </section>`;
+}
+function setPred(l,k){ APP.pred[l] = k; renderScreen(); }
+function startLevel(l){
+  if (!APP.pred[l]) return;
+  const qs = LEVELS[l].questions; let i = 0;
+  while (i < qs.length - 1 && st(l,i).status) i++;
+  APP.level = l; APP.q = i; setScreen('question');
+}
+
+/* =========================================================
+   QUESTION
+   ========================================================= */
+function renderQuestion(l,i){
+  const Q = getQ(l,i), s = st(l,i), lv = LEVELS[l];
+  const dots = lv.questions.map((_,k) => { const x = APP.qs[l+'_'+k]; const c = k===i && !(x&&x.status) ? 'cur' : (x && x.status) || ''; return `<span class="qdot ${c}" title="Question ${k+1}"></span>`; }).join('');
+  let body = '';
+  switch (Q.type){
+    case 'qcm': body = bodyQCM(l,i,Q,s); break;
+    case 'vf': body = bodyVF(l,i,Q,s); break;
+    case 'multi': body = bodyMulti(l,i,Q,s); break;
+    case 'calc': body = bodyCalc(l,i,Q,s); break;
+    case 'zones': body = bodyZones(l,i,Q,s); break;
+    case 'match': body = bodyMatch(l,i,Q,s); break;
+    case 'order': body = bodyOrder(l,i,Q,s); break;
+    case 'invoice': body = bodyInvoice(l,i,Q,s,false); break;
+  }
+  const last = i === lv.questions.length - 1;
+  let act = '';
+  if (s.status) act = `<button class="btn" id="nextBtn" onclick="nextQ(${l},${i})">${last?'Voir le bilan ➜':'Question suivante ➜'}</button>`;
+  else if (['multi','calc','zones','match','order','invoice'].includes(Q.type)) act = `<button class="btn" id="checkBtn" onclick="checkQ(${l},${i})">Vérifier</button>`;
+  return `<section class="qwrap">
+    <div class="qtop"><span class="where">${lv.icon} Mission ${l+1} · Question ${i+1} sur ${lv.questions.length}</span><div class="qdots">${dots}</div></div>
+    <article class="card" id="qcard">
+      <div class="qmeta">${TYPE_LABEL[Q.type]} — ${Q.type==='vf'?'1 essai':'2 essais'} · ${Q.pts} XP</div>
+      <h2 class="qtext">${Q.text}</h2>
+      ${Q.data ? `<span class="data">${Q.data}</span>` : ''}
+      ${body}
+      <div aria-live="polite">${renderFb(Q,s)}</div>
+      <div class="qactions"><button class="btn ghost" onclick="goHub()">🗺️ Parcours</button>${act}</div>
+    </article>
+  </section>`;
+}
+function stepsHTML(Q){ return Q.steps ? Q.steps.map(x => `<span class="stepline">${x}</span>`).join('') : ''; }
+function renderFb(Q,s){
+  const f = s.fb; if (!f) return '';
+  const heads = {
+    ok:'✅ C\'est juste.',
+    h2:'🔄 Juste au 2e essai.',
+    hint:'💡 Indice',
+    shown: f.answer != null ? `👁 La bonne réponse : ${f.answer}` : '👁 Les corrections sont affichées en rouge.',
+    info:'ℹ️'
+  };
+  const full = (f.kind==='ok'||f.kind==='h2'||f.kind==='shown');
+  return `<div class="fb ${f.kind}"><div class="fbh">${heads[f.kind]}</div>${full?stepsHTML(Q):''}<div>${f.html}</div></div>`;
+}
+function nextQ(l,i){
+  if (i + 1 < LEVELS[l].questions.length){ APP.q = i + 1; setScreen('question'); }
+  else finishLevel(l);
+}
+function checkQ(l,i){
+  const t = getQ(l,i).type;
+  if (t==='multi') checkMulti(l,i); else if (t==='calc') checkCalc(l,i); else if (t==='zones') checkZones(l,i);
+  else if (t==='match') checkMatch(l,i); else if (t==='order') checkOrder(l,i); else if (t==='invoice') checkInvoice(l,i);
+}
+
+/* ---------- Score et retours ---------- */
+function addPts(l,i,n){ if (!n) return; st(l,i).earned += n; APP.score += n; floatXP(n); }
+function onGood(){
+  APP.streak++; APP.bestStreak = Math.max(APP.bestStreak, APP.streak);
+  burst(); playGood();
+  if (APP.streak >= 3) comboFlash(APP.streak);
+  const sk = document.getElementById('hudStreak'); sk.classList.remove('pulse'); void sk.offsetWidth; sk.classList.add('pulse');
+}
+function onBad(){ APP.streak = 0; APP.shake = true; playBad(); }
+function finishQ(l,i,status){ st(l,i).status = status; checkBadges(); }
+
+/* ---------- QCM ---------- */
+function bodyQCM(l,i,Q,s){
+  return `<div class="opts-list">${Q.options.map((o,k) => {
+    let c = 'opt';
+    if (s.wrong.includes(k)) c += ' bad';
+    if (s.status && k === Q.correct) c += ' good';
+    const dis = s.status || s.wrong.includes(k);
+    return `<button class="${c}" data-opt="${k}" onclick="answerQCM(${l},${i},${k})" ${dis?'disabled':''}>${o}</button>`;
+  }).join('')}</div>`;
+}
+function answerQCM(l,i,k){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status || s.wrong.includes(k)) return;
+  if (k === Q.correct){
+    addPts(l,i, s.tries===0 ? Q.pts : Q.pts/2); onGood();
+    s.fb = {kind: s.tries===0?'ok':'h2', html:Q.explain}; finishQ(l,i, s.tries===0?'correct':'hint');
+  } else {
+    s.wrong.push(k); s.tries++; onBad();
+    if (s.tries === 1) s.fb = {kind:'hint', html:Q.hint};
+    else { s.fb = {kind:'shown', html:Q.explain, answer:Q.options[Q.correct]}; finishQ(l,i,'shown'); }
+  }
+  renderScreen();
+}
+
+/* ---------- Vrai / Faux ---------- */
+function bodyVF(l,i,Q,s){
+  const b = (v,label) => {
+    let c = 'opt';
+    if (s.status){ if (v === Q.answer) c += ' good'; else if (s.choice === v) c += ' bad'; }
+    return `<button class="${c}" data-vf="${v}" onclick="answerVF(${l},${i},${v})" ${s.status?'disabled':''}>${label}</button>`;
+  };
+  return `<div class="vf">${b(true,'👍 Vrai')}${b(false,'👎 Faux')}</div>`;
+}
+function answerVF(l,i,v){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  s.choice = v;
+  if (v === Q.answer){ addPts(l,i,Q.pts); onGood(); s.fb = {kind:'ok', html:Q.explain}; finishQ(l,i,'correct'); }
+  else { onBad(); s.fb = {kind:'shown', html:Q.explain, answer:Q.answer?'Vrai':'Faux'}; finishQ(l,i,'shown'); }
+  renderScreen();
+}
+
+/* ---------- Sélection multiple ---------- */
+function bodyMulti(l,i,Q,s){
+  const order = shuffled(Q.options.length, l*31 + i*7 + 11);
+  return `<div class="opts-list">${order.map(k => {
+    const o = Q.options[k], on = !!s.sel[k];
+    let c = 'opt' + (on ? ' sel' : '');
+    if (s.status === 'shown'){ c = 'opt' + (o.ok && on ? ' good' : o.ok ? ' missed' : on ? ' bad' : ''); }
+    else if (s.status){ c = 'opt' + (o.ok ? ' good' : ''); }
+    return `<button class="${c}" data-m="${k}" onclick="toggleMulti(${l},${i},${k})" ${s.status?'disabled':''} aria-pressed="${on}"><span class="box">${on?'✓':''}</span>${o.t}</button>`;
+  }).join('')}</div>${s.status==='shown'?'<p class="helper" style="margin-top:8px">En pointillés : les bonnes réponses que tu n\'avais pas cochées.</p>':''}`;
+}
+function toggleMulti(l,i,k){ const s = st(l,i); if (s.status) return; s.sel[k] = !s.sel[k]; renderScreen(); }
+function checkMulti(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  if (!Q.options.some((_,k) => s.sel[k])){ s.fb = {kind:'info', html:"Coche au moins une proposition avant de vérifier."}; renderScreen(); return; }
+  const right = Q.options.every((o,k) => !!s.sel[k] === o.ok);
+  if (right){ addPts(l,i, s.tries===0?Q.pts:Q.pts/2); onGood(); s.fb = {kind:s.tries===0?'ok':'h2', html:Q.explain}; finishQ(l,i, s.tries===0?'correct':'hint'); }
+  else {
+    s.tries++; onBad();
+    if (s.tries === 1) s.fb = {kind:'hint', html:Q.hint};
+    else { s.fb = {kind:'shown', html:Q.explain, answer:Q.options.filter(o=>o.ok).map(o=>o.t).join(' ; ')}; finishQ(l,i,'shown'); }
+  }
+  renderScreen();
+}
+
+/* ---------- Réponse à écrire ---------- */
+function bodyCalc(l,i,Q,s){
+  return `<div class="calc">
+    <div class="inrow"><input id="calcIn" type="text" autocomplete="off" aria-label="Ta réponse" placeholder="Ta réponse ou ton calcul" value="${esc(s.value)}"
+      oninput="calcInput(${l},${i},this.value)" onkeydown="if(event.key==='Enter')checkCalc(${l},${i})" ${s.status?'disabled':''}><span class="unit">${Q.unit}</span></div>
+    <div class="preview" id="calcPrev">${previewText(s.value)}</div>
+    <p class="helper">Tu peux taper un nombre ou tout ton calcul (avec ×, ÷, :, * ou /) : le résultat s'affiche juste en dessous.</p>
+  </div>`;
+}
+function previewText(v){
+  if (!v) return '';
+  const r = evalExpr(v);
+  return r === null ? '' : `${esc(prettyExpr(v))} → = ${num(r)}`;
+}
+function calcInput(l,i,v){ st(l,i).value = v; const p = document.getElementById('calcPrev'); if (p) p.textContent = previewText(v).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
+function checkCalc(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  const v = parseNum(s.value);
+  if (!String(s.value).trim() || isNaN(v)){ s.fb = {kind:'info', html:"Écris un nombre (ou un calcul) avant de vérifier."}; renderScreen(); return; }
+  if (close2(v, Q.answer)){
+    addPts(l,i, s.tries===0?Q.pts:Q.pts/2); onGood();
+    s.fb = {kind:s.tries===0?'ok':'h2', html:Q.explain}; finishQ(l,i, s.tries===0?'correct':'hint');
+  } else {
+    s.tries++; onBad();
+    if (s.tries === 1){
+      const trap = (Q.traps||[]).find(t => close2(t.v, v));
+      s.fb = {kind:'hint', html: trap ? trap.m : Q.hint};
+    } else {
+      s.fb = {kind:'shown', html:Q.explain, answer: Q.unit==='%' ? num(Q.answer)+' %' : eur(Q.answer)};
+      finishQ(l,i,'shown');
+    }
+  }
+  renderScreen();
+}
+
+/* ---------- Exercices à éléments : barème commun (§3.8) ---------- */
+function itemCheck(l,i,keys,isRight,clearWrong){
+  const Q = getQ(l,i), s = st(l,i), v = Q.pts / keys.length;
+  s.checks++; let gained = 0; s.returned = [];
+  keys.forEach(k => {
+    if (s.lock[k]) return;
+    if (isRight(k)){ s.lock[k] = s.checks===1 ? 'g' : 'o'; gained += s.checks===1 ? v : v/2; }
+    else if (s.checks === 1){ clearWrong(k); s.returned.push(k); }
+    else s.lock[k] = 'r';
+  });
+  addPts(l,i,gained);
+  s.selected = null;
+  const nOk = keys.filter(k => s.lock[k]==='g' || s.lock[k]==='o').length;
+  if (s.checks === 1 && nOk === keys.length){ onGood(); itemFinish(l,i,keys); }
+  else if (s.checks === 1){
+    onBad();
+    const phr = nOk === 0 ? "Aucun élément n'est juste pour l'instant." : nOk === 1 ? "<b>1 élément</b> est juste et reste verrouillé." : `<b>${nOk} éléments sur ${keys.length}</b> sont justes et restent verrouillés.`;
+    s.fb = {kind:'hint', html:`${phr} Corrige les autres, puis vérifie une dernière fois.<br>${Q.hint}`};
+  } else {
+    if (nOk === keys.length) onGood(); else onBad();
+    itemFinish(l,i,keys);
+  }
+  renderScreen();
+}
+function itemFinish(l,i,keys){
+  const s = st(l,i), Q = getQ(l,i), all = keys.map(k => s.lock[k]);
+  const status = all.every(x => x==='g') ? 'correct' : all.includes('r') ? 'shown' : 'hint';
+  s.fb = {kind: status==='correct'?'ok':status==='hint'?'h2':'shown', html:Q.explain};
+  finishQ(l,i,status);
+}
+function lockCls(s,k){ return s.lock[k] ? ' ' + s.lock[k] : ''; }
+
+/* ---------- Classement par zones ---------- */
+function bodyZones(l,i,Q,s){
+  const order = shuffled(Q.items.length, l*31 + i*7 + 11);
+  const chip = k => {
+    const it = Q.items[k], lk = s.lock[k];
+    const corr = lk==='r' ? `<span class="corr">→ ${Q.zones.find(z=>z.id===it.z).label}</span>` : '';
+    const placed = s.placed[k] != null;
+    const cls = 'chip' + lockCls(s,k) + (s.selected===k?' sel':'') + (s.returned.includes(k)?' bounce':'');
+    const act = lk || s.status ? '' : placed ? `onclick="zChip(${l},${i},${k},event)"` : `onclick="zSelect(${l},${i},${k})"`;
+    return `<button class="${cls}" data-chip="${k}" ${act} ${lk||s.status?'aria-disabled="true"':''}>${it.t}${corr}</button>`;
+  };
+  const bank = order.filter(k => s.placed[k] == null).map(chip).join('');
+  const zones = Q.zones.map(z => `<div class="zone${s.selected!=null?' armed':''}" data-zone="${z.id}" onclick="zDrop(${l},${i},'${z.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter')zDrop(${l},${i},'${z.id}')"><div class="zh">${z.label}</div>${order.filter(k => s.placed[k]===z.id).map(chip).join('')}</div>`).join('');
+  return `<p class="helper" style="margin-bottom:8px">Clique une étiquette, puis clique la colonne où elle va. Clique une étiquette placée pour la reprendre.</p>
+    <div class="bank">${bank}</div><div class="zones" style="--nz:${Q.zones.length}">${zones}</div>`;
+}
+function zSelect(l,i,k){ const s = st(l,i); if (s.status) return; s.selected = s.selected===k ? null : k; renderScreen(); }
+function zDrop(l,i,z){ const s = st(l,i); if (s.status || s.selected==null) return; s.placed[s.selected] = z; s.selected = null; renderScreen(); }
+function zChip(l,i,k,ev){
+  if (ev) ev.stopPropagation();
+  const s = st(l,i); if (s.status || s.lock[k]) return;
+  if (s.selected != null && s.selected !== k){ s.placed[s.selected] = s.placed[k]; s.selected = null; }   // étiquette armée : on la dépose dans cette colonne
+  else { delete s.placed[k]; s.selected = k; }                                                       // sinon : on reprend l'étiquette
+  renderScreen();
+}
+function checkZones(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  if (Q.items.some((_,k) => s.placed[k] == null)){ s.fb = {kind:'info', html:"Place toutes les étiquettes avant de vérifier."}; renderScreen(); return; }
+  itemCheck(l,i, Q.items.map((_,k)=>k), k => s.placed[k]===Q.items[k].z, k => { delete s.placed[k]; });
+}
+
+/* ---------- Appariement ---------- */
+function bodyMatch(l,i,Q,s){
+  const pool = Q.pairs.map(p => p[1]).concat(Q.distractors);
+  const order = shuffled(pool.length, l*31 + i*7 + 11).map(k => pool[k]);
+  const usedLocked = Q.pairs.map((_,k) => s.lock[k] ? s.sel[k] : null).filter(Boolean);
+  return `<p class="helper" style="margin-bottom:10px">Choisis dans chaque liste. Attention : certaines propositions ne servent à rien.</p>` +
+    Q.pairs.map((p,k) => {
+      const lk = s.lock[k];
+      const opts = order.filter(o => !usedLocked.includes(o) || s.sel[k]===o).map(o => `<option value="${esc(o)}" ${s.sel[k]===o?'selected':''}>${o}</option>`).join('');
+      return `<div class="match-row${lk?' '+lk:''}"><div class="term">${p[0]}</div>
+        <select data-row="${k}" aria-label="${esc(p[0])}" onchange="mSelect(${l},${i},${k},this.value)" ${lk||s.status?'disabled':''}><option value="">— choisis —</option>${opts}</select>
+        ${lk==='r'?`<div class="corr">✏️ ${p[1]}</div>`:''}</div>`;
+    }).join('');
+}
+function mSelect(l,i,k,v){ const s = st(l,i); if (s.status || s.lock[k]) return; s.sel[k] = v; renderScreen(); }
+function checkMatch(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  if (Q.pairs.some((_,k) => !s.sel[k])){ s.fb = {kind:'info', html:"Fais un choix dans chaque liste avant de vérifier."}; renderScreen(); return; }
+  itemCheck(l,i, Q.pairs.map((_,k)=>k), k => s.sel[k]===Q.pairs[k][1], k => { s.sel[k] = ''; });
+}
+
+/* ---------- Remise en ordre ---------- */
+function bodyOrder(l,i,Q,s){
+  const n = Q.steps.length, labels = Q.steps.concat(Q.distractors);
+  if (s.slots.length !== n) s.slots = Array(n).fill(null);
+  const order = shuffled(labels.length, l*31 + i*7 + 11);
+  const bank = order.filter(id => !s.slots.includes(id)).map(id => {
+    const cls = 'chip' + (s.selected===id?' sel':'') + (s.returned.some(k => s.lastSlots && s.lastSlots[k]===id)?' bounce':'');
+    return `<button class="${cls}" data-chip="${id}" onclick="oSelect(${l},${i},${id})" ${s.status?'disabled':''}>${labels[id]}</button>`;
+  }).join('');
+  const slots = s.slots.map((id,k) => {
+    const lk = s.lock[k];
+    const cls = 'slot' + (id!=null?' filled':'') + (lk?' '+lk:'') + (s.selected!=null && !lk?' armed':'');
+    const inner = id!=null ? `<span>${labels[id]}${lk==='r'?`<span class="corr">✏️ ${Q.steps[k]}</span>`:''}</span>` : `<span class="ph">Clique une étape, puis cette case</span>`;
+    return `<li><button class="${cls}" data-slot="${k}" onclick="oDrop(${l},${i},${k})" ${lk||s.status?'aria-disabled="true"':''}><span class="n">${k+1}</span>${inner}</button></li>`;
+  }).join('');
+  return `<p class="helper" style="margin-bottom:8px">Clique une étape, puis la case numérotée où elle va. Deux étapes sont des pièges et ne servent à rien.</p>
+    <div class="bank">${bank}</div><ol class="slots">${slots}</ol>`;
+}
+function oSelect(l,i,id){ const s = st(l,i); if (s.status) return; s.selected = s.selected===id ? null : id; renderScreen(); }
+function oDrop(l,i,k){
+  const s = st(l,i); if (s.status || s.lock[k]) return;
+  if (s.selected != null){ s.slots[k] = s.selected; s.selected = null; }
+  else if (s.slots[k] != null){ s.slots[k] = null; }
+  renderScreen();
+}
+function checkOrder(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  if (s.slots.length !== Q.steps.length || s.slots.some(x => x == null)){ s.fb = {kind:'info', html:"Remplis toutes les cases avant de vérifier."}; renderScreen(); return; }
+  s.lastSlots = s.slots.slice();
+  itemCheck(l,i, Q.steps.map((_,k)=>k), k => s.slots[k]===k, k => { s.slots[k] = null; });
+}
+
+/* ---------- Facture à compléter ---------- */
+const INV = { lines:[{q:40,d:"Classeurs à levier",pu:3.5,tot:140,given:true},{q:25,d:"Agendas 2027",pu:6,cell:'l2'}],
+  port:15, emb:4, cons:{n:2,pu:5,tot:10} };
+function invCell(l,i,Q,s,id,readonly){
+  const c = Q.cells.find(x => x.id===id), lk = s.lock[id];
+  if (lk || readonly){
+    const val = lk==='r' || !lk ? c.answer : parseNum(s.vals[id]);
+    return `<span class="cellv ${lk||''}">${lk==='r'?'✏️ ':''}${eur(val)}</span>`;
+  }
+  return `<input class="cell-in" data-cell="${id}" type="text" autocomplete="off" aria-label="Montant : ${id}" value="${esc(s.vals[id]||'')}" oninput="iInput(${l},${i},'${id}',this.value)" onfocus="iInput(${l},${i},'${id}',this.value)">`;
+}
+function bodyInvoice(l,i,Q,s,readonly){
+  const C = id => invCell(l,i,Q,s,id,readonly);
+  return `<div class="paper invoice${readonly?' fiche':''}">
+    <div class="inv-head"><div><b>Papeterie du Hainaut SRL</b><br>Rue de Nimy 24, 7000 Mons<br>TVA BE 0712.345.630</div>
+      <div class="inv-title">FACTURE<span>n° 2026/148 · ${today()}</span></div></div>
+    <div class="inv-client">Client : <b>Bureau Malin SRL</b>, Grand-Place 3, 6000 Charleroi · TVA BE 0876.543.270<br>Fournitures de bureau : <b>TVA 21 %</b> · Échéance : 30 jours</div>
+    <table class="inv-table"><thead><tr><th>Qté</th><th>Désignation</th><th class="r">Prix unitaire</th><th class="r">Total</th></tr></thead><tbody>
+      ${INV.lines.map(x => `<tr><td>${x.q}</td><td>${x.d}</td><td class="r">${eur(x.pu)}</td><td class="r">${x.given ? eur(x.tot)+(readonly?'':'<br><small>exemple déjà rempli</small>') : C(x.cell)}</td></tr>`).join('')}
+    </tbody></table>
+    <table class="inv-sum"><tbody>
+      <tr><td class="op"></td><td>Total des articles (prix brut)</td><td class="r">${C('brut')}</td></tr>
+      <tr><td class="op">−</td><td>Remise 10 %</td><td class="r">${C('rem')}</td></tr>
+      <tr><td class="op">=</td><td>Prix net HTVA</td><td class="r">${C('net')}</td></tr>
+      <tr><td class="op">+</td><td>Frais de port</td><td class="r">${eur(INV.port)}</td></tr>
+      <tr><td class="op">+</td><td>Emballage non repris</td><td class="r">${eur(INV.emb)}</td></tr>
+      <tr><td class="op">=</td><td>Montant taxable</td><td class="r">${C('tax')}</td></tr>
+      <tr><td class="op">+</td><td>TVA 21 %</td><td class="r">${C('tva')}</td></tr>
+      <tr><td class="op">=</td><td>Sous-total</td><td class="r">${C('sous')}</td></tr>
+      <tr><td class="op">+</td><td>Emballage repris : ${INV.cons.n} caisses consignées à ${eur(INV.cons.pu)}</td><td class="r">${eur(INV.cons.tot)}</td></tr>
+      <tr class="strong"><td class="op">=</td><td>Total à payer</td><td class="r">${C('tot')}</td></tr>
+    </tbody></table>
+    ${readonly ? `<div class="sign"><span>Facture complétée par <b>${esc(studentName())}</b></span><span>${today()}</span></div>` : `<div class="inv-prev" id="invPrev"></div><p class="small" style="color:var(--ink2);margin-top:4px">Dans chaque case, tu peux taper le résultat ou ton calcul (par exemple avec × et ÷).</p>`}
+  </div>`;
+}
+function iInput(l,i,id,v){ st(l,i).vals[id] = v; const p = document.getElementById('invPrev'); if (p) p.textContent = previewText(v).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'); }
+function checkInvoice(l,i){
+  const Q = getQ(l,i), s = st(l,i);
+  if (s.status) return;
+  const missing = Q.cells.some(c => !s.lock[c.id] && (!String(s.vals[c.id]||'').trim() || isNaN(parseNum(s.vals[c.id]))));
+  if (missing){ s.fb = {kind:'info', html:"Remplis toutes les cases avec un nombre (ou un calcul) avant de vérifier."}; renderScreen(); return; }
+  itemCheck(l,i, Q.cells.map(c=>c.id), id => close2(parseNum(s.vals[id]), Q.cells.find(c=>c.id===id).answer), id => { s.vals[id] = ''; });
+}
+
+/* =========================================================
+   FIN DE MISSION ET BILANS
+   ========================================================= */
+function levelStats(l){
+  const lv = LEVELS[l]; let c=0,h=0,sh=0,pts=0;
+  lv.questions.forEach((_,i) => { const s = st(l,i); pts += s.earned; if (s.status==='correct') c++; else if (s.status==='hint') h++; else sh++; });
+  const n = lv.questions.length, firstPct = c/n, ratio = pts/lv.maxPoints;
+  const pred = APP.pred[l], predOk = pred ? Math.abs(firstPct - PRED[pred].v) <= 0.15 + 1e-9 : false;
+  return {pts, max:lv.maxPoints, c, h, s:sh, n, firstPct, ratio, pred, predOk};
+}
+function finishLevel(l){
+  if (!APP.done[l]){
+    APP.done[l] = levelStats(l);
+    completeExercise(l);
+    checkBadges();
+    if (APP.done[l].firstPct >= 0.7) confetti();
+    playLevel();
+  }
+  APP.level = l; setScreen('bilan');
+}
+function grade(p){ return p>=.85?{g:'A',t:'Excellent'}:p>=.65?{g:'B',t:'Très bien'}:p>=.45?{g:'C',t:'Satisfaisant'}:{g:'D',t:'À retravailler'}; }
+function medal(p){ return p>=.9?'🏆':p>=.7?'🥇':p>=.5?'🥈':'🥉'; }
+function legendHTML(){ return `<div class="legend"><span><i style="background:var(--success)"></i>✅ du 1er coup</span><span><i style="background:var(--orange)"></i>🔄 au 2e essai</span><span><i style="background:var(--error)"></i>👁 réponse montrée</span></div>`; }
+function predNote(d){
+  if (!d.pred) return '';
+  const lab = PRED[d.pred].label.replace(/ [^ ]+$/,'').toLowerCase();
+  let msg;
+  if (d.predOk) msg = 'Bonne estimation, tu te connais bien !';
+  else if (d.firstPct > PRED[d.pred].v) msg = "Tu t'es sous-estimé·e : tu peux avoir plus confiance en toi.";
+  else msg = "Tu étais un peu trop optimiste : relis les corrections pour viser plus juste la prochaine fois.";
+  return `<div class="pred-note">🔮 Tu avais prédit <i>${lab}</i> ; tu as réussi <b>${d.c} question${d.c>1?'s':''} sur ${d.n}</b> du premier coup. ${msg}</div>`;
+}
+function renderBilan(l){
+  const d = APP.done[l], lv = LEVELS[l], g = grade(d.firstPct), last = l === LEVELS.length - 1;
+  let h = `<section class="bilan"><div class="card bilan-top">
+      <div class="medal">${medal(d.firstPct)}</div>
+      <h2 style="margin-top:8px">${lv.short} : terminée !</h2>
+      <p class="stars" style="font-size:1.5rem;margin-top:6px">${starStr(d.ratio)}</p>
+      <p class="muted">${fmtXP(d.pts)} XP sur ${d.max} · ${Math.round(d.firstPct*100)} % de réussite au 1er essai</p>
+      <span class="grade">${g.g} — ${g.t}</span>
+      ${legendHTML()}
+      <table class="tbl"><tr><th>Questions</th><th>✅</th><th>🔄</th><th>👁</th><th>Total</th></tr>
+        <tr><td>${lv.icon} ${lv.short}</td><td>${d.c}</td><td>${d.h}</td><td>${d.s}</td><td>${d.n}</td></tr></table>
+    </div>${predNote(d)}`;
+  if (last){
+    const Q = getQ(l,3), s = st(l,3);
+    h += `<div><h3 class="section-title">🧾 Ta facture complétée</h3>${bodyInvoice(l,3,Q,s,true)}
+      <div class="row center no-print" style="margin-top:12px"><button class="btn gold" onclick="window.print()">🖨️ Imprimer ma facture</button></div></div>`;
+  }
+  h += `<div class="row between">
+      <button class="btn ghost" onclick="goHub()">🗺️ Parcours</button>
+      ${last ? `<button class="btn" onclick="goHub()">Voir mon bilan final ➜</button>` : `<button class="btn" onclick="openLevel(${l+1})">Mission suivante ➜</button>`}
+    </div></section>`;
+  return h;
+}
+
+/* ---------- Bilan final par critères (§4.11) ---------- */
+function bilanIndicateurs(){
+  const acc = {};
+  LEVELS.forEach((lv,l) => lv.questions.forEach((q,i) => {
+    const a = acc[q.ind] || (acc[q.ind] = {pts:0,max:0});
+    a.max += q.pts; a.pts += (APP.qs[l+'_'+i] && APP.qs[l+'_'+i].earned) || 0;
+  }));
+  const statut = r => r >= 0.8 ? 'atteint' : r >= 0.5 ? 'encours' : 'nonatteint';
+  return CRITERES.map(c => {
+    const inds = c.indicateurs.map(ind => { const a = acc[ind.id] || {pts:0,max:0}; const r = a.max ? a.pts/a.max : 0; return Object.assign({}, ind, {ratio:r, statut:statut(r)}); });
+    const tot = c.indicateurs.reduce((t,ind) => { const a = acc[ind.id] || {pts:0,max:0}; return {pts:t.pts+a.pts, max:t.max+a.max}; }, {pts:0,max:0});
+    const r = tot.max ? tot.pts/tot.max : 0;
+    return {id:c.id, nom:c.nom, ratio:r, statut:statut(r), indicateurs:inds};
+  });
+}
+const STATUT_LABEL = {atteint:'✅ Atteint', encours:'🟠 En cours d\'acquisition', nonatteint:'❌ Non atteint'};
+function renderFinal(){
+  let c=0,h=0,s=0,n=0;
+  const rows = LEVELS.map((lv,l) => { const d = APP.done[l]; c+=d.c; h+=d.h; s+=d.s; n+=d.n;
+    return `<tr><td>${lv.icon} ${lv.short}</td><td>${d.c}</td><td>${d.h}</td><td>${d.s}</td><td class="stars">${starStr(d.ratio)}</td></tr>`; }).join('');
+  const fp = c/n, g = grade(fp), r = RANKS[APP.rankIdx];
+  const crits = bilanIndicateurs();
+  const allOk = crits.every(cr => cr.indicateurs.every(x => x.statut==='atteint'));
+  const critHTML = crits.map(cr => `<div class="crit"><div class="crit-h"><span>${cr.id} — ${cr.nom}</span><span class="tag ${cr.statut}">${STATUT_LABEL[cr.statut]}</span></div>
+      ${cr.indicateurs.map(x => `<div class="ind"><span>${x.texte}</span><span class="tag ${x.statut}">${STATUT_LABEL[x.statut]}</span>
+        ${x.statut!=='atteint'?`<div class="revoir">📖 À revoir dans ton cours : <i>${x.chapitre}</i> — ${x.revoir}</div>`:''}</div>`).join('')}</div>`).join('');
+  return `<section class="final-banner bilan" style="max-width:none">
+    <div class="card bilan-top">
+      <div class="medal">${medal(fp)}</div>
+      <h2 style="margin-top:8px">Parcours terminé, ${esc(studentName())} !</h2>
+      <p class="muted">${fmtXP(APP.score)} XP sur ${TOTAL_XP} · ${Math.round(fp*100)} % de réussite au 1er essai</p>
+      <span class="grade">${g.g} — ${g.t}</span>
+      <p class="muted small" style="margin-top:10px">Rang atteint : <b>${r.icon} ${r.name}</b> · Meilleure série : <b>🔥 ${APP.bestStreak}</b> · Badges : <b>${APP.badges.size} / ${BADGES.length}</b></p>
+      ${legendHTML()}
+      <table class="tbl"><tr><th>Mission</th><th>✅</th><th>🔄</th><th>👁</th><th>Étoiles</th></tr>${rows}
+        <tr><td><b>Total</b></td><td><b>${c}</b></td><td><b>${h}</b></td><td><b>${s}</b></td><td></td></tr></table>
+    </div>
+    <div class="paper fiche" id="bilanFiche">
+      <h3>📋 Mon bilan : ce que je maîtrise</h3>
+      <p style="color:var(--ink2);font-size:.85rem">${esc(studentName())}${APP.classe?' · '+esc(APP.classe):''} · ${today()}</p>
+      ${critHTML}
+      ${allOk ? `<p style="margin-top:12px;font-weight:700;color:#0d6b42">🎉 Tous les indicateurs sont atteints : tu maîtrises le calcul d'une facture. Passe aux exercices papier !</p>` : ''}
+    </div>
+    <div class="row center no-print">
+      <button class="btn gold" onclick="window.print()">🖨️ Imprimer mon bilan</button>
+      <button class="btn lb-app" onclick="openLB('app')">🏆 Classement</button>
+      <button class="btn lb-glob" onclick="openLB('global')">🌍 Général</button>
+      <button class="btn orange" onclick="restartGame()">🔁 Rejouer</button>
+    </div>
+  </section>`;
+}
+
+/* =========================================================
+   BADGES, RANGS, EFFETS, SONS
+   ========================================================= */
+function checkBadges(){
+  const give = id => { if (!APP.badges.has(id)){ APP.badges.add(id); queueToast(BADGES.find(b => b.id===id)); } };
+  if (APP.done[0]) give('m1');
+  if (APP.bestStreak >= 5) give('streak5');
+  if (APP.bestStreak >= 10) give('streak10');
+  Object.keys(APP.done).forEach(l => { if (APP.done[l].firstPct === 1) give('perfect'); if (APP.done[l].predOk) give('pred'); });
+  if (APP.done[1] && APP.done[2]){ const r = (APP.done[1].pts + APP.done[2].pts) / (LEVELS[1].maxPoints + LEVELS[2].maxPoints); if (r >= 0.8) give('tva'); }
+  const inv = APP.qs['4_3']; if (inv && inv.status === 'correct') give('invoice');
+  if (LEVELS.every((_,l) => APP.done[l])) give('end');
+}
+const TOASTS = []; let toastBusy = false;
+function queueToast(b){ TOASTS.push(b); if (!toastBusy) nextToast(); }
+function nextToast(){
+  const box = document.getElementById('toasts'); const b = TOASTS.shift();
+  if (!b){ toastBusy = false; box.innerHTML = ''; return; }
+  toastBusy = true; playBadge();
+  box.innerHTML = `<div class="toast"><span class="ti">${b.icon}</span><div><small>Badge débloqué</small><b>${b.name}</b><div class="small muted">${b.cond}</div></div></div>`;
+  setTimeout(nextToast, 3000);
+}
+function showRankUp(r){
+  document.getElementById('rankIcon').textContent = r.icon;
+  document.getElementById('rankTitle').textContent = r.name;
+  document.getElementById('rankSub').textContent = `Tu as atteint ${r.xp} XP. Continue comme ça !`;
+  document.getElementById('rankOverlay').classList.add('show');
+  confetti(); playLevel();
+}
+function closeRankUp(){ document.getElementById('rankOverlay').classList.remove('show'); }
+document.addEventListener('pointerdown', e => { APP.lastClick = {x:e.clientX, y:e.clientY}; }, true);
+function burst(){
+  const fx = document.getElementById('fx'), {x,y} = APP.lastClick, cols = ['#22d68a','#ffc93c','#ff8a3d','#7dd3fc'];
+  for (let k = 0; k < 16; k++){
+    const p = document.createElement('span'), a = Math.random()*Math.PI*2, d = 40 + Math.random()*60;
+    p.className = 'part'; p.style.left = x+'px'; p.style.top = y+'px'; p.style.background = cols[k%4];
+    p.style.setProperty('--dx', Math.cos(a)*d+'px'); p.style.setProperty('--dy', Math.sin(a)*d+'px');
+    fx.appendChild(p); setTimeout(() => p.remove(), 850);
+  }
+}
+function floatXP(n){
+  const fx = document.getElementById('fx'), e = document.createElement('span');
+  e.className = 'floatxp'; e.textContent = '+' + fmtXP(n) + ' XP';
+  e.style.left = (APP.lastClick.x - 20) + 'px'; e.style.top = (APP.lastClick.y - 30) + 'px';
+  fx.appendChild(e); setTimeout(() => e.remove(), 1150);
+}
+function comboFlash(n){
+  const fx = document.getElementById('fx'), e = document.createElement('div');
+  e.className = 'combo'; e.textContent = n >= 10 ? `⚡ INARRÊTABLE ×${n}` : n >= 5 ? `🔥 EN FEU ×${n}` : `🔥 COMBO ×${n}`;
+  fx.appendChild(e); setTimeout(() => e.remove(), 1050);
+}
+function confetti(){
+  const fx = document.getElementById('fx'), cols = ['#22d68a','#ffc93c','#ff8a3d','#7dd3fc','#f472b6'];
+  for (let k = 0; k < 70; k++){
+    const c = document.createElement('span'); c.className = 'confetti';
+    c.style.left = Math.random()*100 + 'vw'; c.style.background = cols[k%5];
+    c.style.animationDuration = (2 + Math.random()*1.8) + 's'; c.style.animationDelay = Math.random()*.4 + 's';
+    fx.appendChild(c); setTimeout(() => c.remove(), 4400);
+  }
+}
+let AC = null;
+function tone(freq,start,dur,type,vol){
+  if (!APP.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + start;
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || .12, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + .02);
+  } catch(e){}
+}
+function playGood(){ tone(660,0,.12,'sine'); tone(990,.1,.16,'sine'); }
+function playBad(){ tone(220,0,.18,'triangle',.08); }
+function playBadge(){ tone(784,0,.12); tone(988,.1,.12); tone(1319,.2,.2); }
+function playLevel(){ [523,659,784,1047].forEach((f,k) => tone(f,k*.11,.18,'triangle')); }
+function toggleSound(){
+  APP.sound = !APP.sound;
+  const b = document.getElementById('soundBtn');
+  b.textContent = APP.sound ? '🔊' : '🔇'; b.setAttribute('aria-label', APP.sound ? 'Couper le son' : 'Activer le son');
+  if (APP.sound) playGood();
+}
+
+/* =========================================================
+   REJOUER
+   ========================================================= */
+function resetState(){
+  APP.qs = {}; APP.score = 0; APP.streak = 0; APP.bestStreak = 0; APP.done = {}; APP.pred = {};
+  APP.badges = new Set(); APP.rankIdx = 0; APP.level = null; APP.q = 0; APP.timerLevel = null;
+  APP.completedExercises = []; APP.exerciseTimes = {}; APP.exerciseScores = {}; APP.scoreBeforeExercise = 0; APP.exerciseStartTime = null;
+}
+function restartGame(){
+  TRACKING.sessionId = new Date().toISOString();   // ⚠️ nouvelle session
+  resetState();
+  APP.globalTimerStart = Date.now();
+  setScreen('hub');
+}
+
+/* ============================================================
+   TRACKING — Configuration
+   ============================================================ */
+const TRACKING = {
+  appName: "La Facture — TVA et calculs",
+  totalNiveaux: LEVELS.length,
+  sessionId: null,
+  scriptUrl: "https://script.google.com/macros/s/AKfycbx9bRMVuHU2mgFLii1KcQXD3LdZahnDH1rf1cWv9RuDvQAt0l3VtLtxzmbH7MtpJWRjfA/exec"
+};
+
+/* ============================================================
+   TRACKING — Modal Email
+   ============================================================ */
+function showEmailModal(){
+  document.getElementById('emailOverlay').classList.add('show');
+  const input = document.getElementById('emailInput');
+  const saved = lsGet('student_email');
+  if (saved) input.value = saved;
+  input.focus();
+  document.getElementById('emailError').textContent = '';
+}
+function validateEmail(){
+  const input = document.getElementById('emailInput');
+  const btn = document.getElementById('emailBtn');
+  const errDiv = document.getElementById('emailError');
+  const email = input.value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errDiv.textContent = '⚠️ Entre une adresse email valide.'; input.style.borderColor = 'var(--error)'; return;
+  }
+  btn.textContent = '⏳ Vérification…'; btn.disabled = true; errDiv.textContent = ''; input.style.borderColor = '';
+  const cbName = '_emailCb_' + Date.now();
+  const timeout = setTimeout(() => {
+    delete window[cbName]; const s = document.getElementById(cbName); if (s) s.remove();
+    errDiv.textContent = '⚠️ Connexion impossible. Vérifie ta connexion internet.';
+    btn.textContent = '✅ Vérifier et commencer'; btn.disabled = false;
+  }, 10000);
+  window[cbName] = function(resp){
+    clearTimeout(timeout); delete window[cbName];
+    const s = document.getElementById(cbName); if (s) s.remove();
+    btn.textContent = '✅ Vérifier et commencer'; btn.disabled = false;
+    if (resp && resp.found){
+      const oldEmail = lsGet('student_email');
+      lsSet('student_email', email); lsSet('student_classe', resp.classe || '');
+      APP.email = email; APP.classe = resp.classe || '';
+      if (oldEmail && oldEmail !== email) resetProgression();
+      TRACKING.sessionId = new Date().toISOString();
+      document.getElementById('emailOverlay').classList.remove('show');
+      startGlobalTimer();
+      renderScreen(); renderNav();
+    } else {
+      errDiv.textContent = "⚠️ Cette adresse email n'est pas enregistrée. Vérifie l'orthographe ou demande à ton professeur de t'ajouter à la liste.";
+      input.style.borderColor = 'var(--error)';
+    }
+  };
+  const s = document.createElement('script');
+  s.id = cbName;
+  s.src = `${TRACKING.scriptUrl}?action=check_email&email=${encodeURIComponent(email)}&callback=${cbName}`;
+  s.onerror = () => { clearTimeout(timeout); delete window[cbName]; s.remove(); errDiv.textContent = '⚠️ Erreur de connexion au serveur.'; btn.textContent = '✅ Vérifier et commencer'; btn.disabled = false; };
+  document.body.appendChild(s);
+}
+function resetProgression(){ resetState(); console.log('[TRACKING] Progression réinitialisée (nouvel email)'); }
+
+/* ============================================================
+   TRACKING — Chronomètres
+   ============================================================ */
+function startGlobalTimer(){
+  APP.globalTimerStart = Date.now();
+  const el = document.getElementById('globalTimer'); if (el) el.style.display = 'inline';
+  if (APP.globalTimerInterval) clearInterval(APP.globalTimerInterval);
+  APP.globalTimerInterval = setInterval(updateTimerDisplay, 1000);
+  updateTimerDisplay();
+}
+function updateTimerDisplay(){
+  const el = document.getElementById('globalTimer');
+  if (!el || !APP.globalTimerStart) return;
+  const e = Math.floor((Date.now() - APP.globalTimerStart) / 1000);
+  el.textContent = '⏱️ ' + String(Math.floor(e/60)).padStart(2,'0') + ':' + String(e%60).padStart(2,'0');
+}
+function formatTime(sec){ const m = Math.floor(sec/60), s = sec%60; return m > 0 ? `${m}m${String(s).padStart(2,'0')}s` : `${s}s`; }
+function startExerciseTimer(exIdx){ APP.exerciseStartTime = Date.now(); APP.scoreBeforeExercise = APP.score || 0; }
+function stopExerciseTimer(exIdx){
+  if (!APP.exerciseStartTime) return null;
+  const tempsSec = Math.round((Date.now() - APP.exerciseStartTime) / 1000);
+  APP.exerciseTimes[exIdx] = tempsSec; APP.exerciseStartTime = null;
+  const deltaPoints = (APP.score || 0) - APP.scoreBeforeExercise;
+  APP.exerciseScores[exIdx] = deltaPoints;
+  return {points:deltaPoints, temps:tempsSec};
+}
+function completeExercise(idx){
+  if (APP.completedExercises.includes(idx)) return;   // anti-doublon
+  APP.completedExercises.push(idx);
+  APP.timerLevel = null;
+  const result = stopExerciseTimer(idx);
+  if (result) sendResult(LEVELS[idx].title, result.points, LEVELS[idx].maxPoints, result.temps);
+}
+
+/* ============================================================
+   TRACKING — Envoi des résultats
+   ============================================================ */
+function sendResult(niveau, points, pointsMax, temps){
+  if (!APP.email) return;
+  const payload = { email:APP.email, classe:APP.classe, app:TRACKING.appName, niveau:niveau, points:points, pointsMax:pointsMax, temps:temps, totalNiveaux:TRACKING.totalNiveaux, sessionId:TRACKING.sessionId };
+  console.log('[TRACKING] Envoi:', payload);
+  fetch(TRACKING.scriptUrl, { method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) })
+    .catch(err => console.warn('[TRACKING] Erreur:', err));
+}
+
+/* ============================================================
+   TRACKING — Modal Classement
+   ============================================================ */
+let currentLBTab = 'app';
+function openLB(tab){ document.getElementById('lbOverlay').classList.add('show'); switchLBTab(tab || 'app'); }
+function closeLB(){ document.getElementById('lbOverlay').classList.remove('show'); }
+function switchLBTab(tab){
+  currentLBTab = tab;
+  const bA = document.getElementById('lbTabApp'), bG = document.getElementById('lbTabGlobal');
+  const cl = APP.classe ? ` (${esc(APP.classe)})` : '';
+  document.getElementById('lbTitle').innerHTML = tab === 'app' ? `🏆 Classement — ${TRACKING.appName}${cl}` : `🌍 Classement général${cl}`;
+  if (tab === 'app'){ bA.style.background = 'var(--accent)'; bA.style.color = '#08170f'; bG.style.background = 'transparent'; bG.style.color = 'var(--orange)'; }
+  else { bG.style.background = 'var(--orange)'; bG.style.color = '#1f0f03'; bA.style.background = 'transparent'; bA.style.color = 'var(--accent)'; }
+  fetchLeaderboard(tab);
+}
+function fetchLeaderboard(tab){
+  const content = document.getElementById('lbContent');
+  content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">⏳ Chargement…</div>';
+  const action = tab === 'app' ? 'leaderboard_app' : 'leaderboard_global';
+  const cbName = '_lbCb_' + Date.now();
+  const timeout = setTimeout(() => {
+    delete window[cbName]; const s = document.getElementById(cbName); if (s) s.remove();
+    content.innerHTML = `<div style="text-align:center;padding:40px"><div style="color:var(--error);margin-bottom:12px">⚠️ Connexion impossible</div><button class="btn ghost" onclick="fetchLeaderboard('${tab}')">Réessayer</button></div>`;
+  }, 10000);
+  window[cbName] = function(resp){
+    clearTimeout(timeout); delete window[cbName];
+    const s = document.getElementById(cbName); if (s) s.remove();
+    const lbData = resp && (resp.leaderboard || resp.data);
+    if (!lbData || lbData.length === 0){ content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">🏁 Aucun résultat pour le moment</div>'; return; }
+    renderLeaderboard(lbData, tab);
+  };
+  let url = `${TRACKING.scriptUrl}?action=${action}&callback=${cbName}&mode=last`;
+  if (tab === 'app') url += `&app=${encodeURIComponent(TRACKING.appName)}`;
+  if (APP.classe) url += `&classe=${encodeURIComponent(APP.classe)}`;
+  const s = document.createElement('script');
+  s.id = cbName; s.src = url;
+  s.onerror = () => { clearTimeout(timeout); delete window[cbName]; s.remove(); content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--error)">⚠️ Erreur de connexion</div>'; };
+  document.body.appendChild(s);
+}
+function renderLeaderboard(data, tab){
+  const content = document.getElementById('lbContent');
+  const myEmail = (APP.email || '').toLowerCase();
+  if (tab === 'global' && data.length > 0){
+    data = data.slice().sort((a,b) => { const pA = a.pct != null ? a.pct : (a.pourcentage || 0), pB = b.pct != null ? b.pct : (b.pourcentage || 0); if (pB !== pA) return pB - pA; return (a.totalTemps || a.totalTime || 0) - (b.totalTemps || b.totalTime || 0); });
+    data.forEach((e,i) => { e.rang = i + 1; });
+  }
+  const me = data.find(r => r.email === myEmail);
+  let html = '';
+  if (me){
+    const pct = me.pct != null ? me.pct : (me.pourcentage != null ? me.pourcentage : 0);
+    const count = tab === 'app' ? (me.niveauxCompletes || me.niveaux || 0) : (me.appsCompletes || me.apps || 0);
+    const total = tab === 'app' ? (me.totalNiveaux || 0) : (me.totalPossibleNiveaux || 0);
+    const label = tab === 'app' ? 'niveaux' : 'apps';
+    const prog = total > 0 ? count + '/' + total + ' ' + label : count + ' ' + label;
+    html += `<div style="background:rgba(34,214,138,.08);border:1px solid rgba(34,214,138,.3);border-radius:12px;padding:16px;margin-bottom:16px;display:flex;justify-content:space-around;text-align:center;gap:8px;flex-wrap:wrap">
+      <div><div style="font-size:1.3rem;font-weight:800;color:var(--accent)">#${me.rang}</div><div style="font-size:.7rem;color:var(--text2)">RANG</div></div>
+      <div><div style="font-size:1.3rem;font-weight:800">${me.totalPoints}</div><div style="font-size:.7rem;color:var(--text2)">POINTS</div></div>
+      <div><div style="font-size:1.3rem;font-weight:800;color:${pct>=80?'var(--accent)':pct>=50?'var(--orange)':'var(--error)'}">${pct}%</div><div style="font-size:.7rem;color:var(--text2)">RÉUSSITE</div></div>
+      <div><div style="font-size:1.3rem;font-weight:800;color:var(--text2)">${prog}</div><div style="font-size:.7rem;color:var(--text2)">PROGRESSION</div></div></div>`;
+  }
+  const medals = ['🥇','🥈','🥉'];
+  html += '<table style="width:100%;border-collapse:collapse;font-size:.85rem"><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:8px 4px;color:var(--text2);font-size:.72rem">#</th><th style="text-align:left;padding:8px 4px;color:var(--text2);font-size:.72rem">Élève</th><th style="text-align:right;padding:8px 4px;color:var(--text2);font-size:.72rem">Pts</th><th style="text-align:right;padding:8px 4px;color:var(--text2);font-size:.72rem">%</th><th style="text-align:right;padding:8px 4px;color:var(--text2);font-size:.72rem">Progression</th><th style="text-align:right;padding:8px 4px;color:var(--text2);font-size:.72rem">Temps</th></tr>';
+  data.forEach(row => {
+    const r = row.rang || 0;
+    const name = String(row.email||'').split('@')[0].split(/[._-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const pct = row.pct != null ? row.pct : (row.pourcentage != null ? row.pourcentage : 0);
+    const temps = row.totalTemps || row.totalTime || 0;
+    const count = tab === 'app' ? (row.niveauxCompletes || row.niveaux || 0) : (row.appsCompletes || row.apps || 0);
+    const total = tab === 'app' ? (row.totalNiveaux || 0) : (row.totalPossibleNiveaux || 0);
+    const bar = total > 0 ? `<div style="display:inline-block;width:60px;height:6px;background:var(--bg3);border-radius:3px;vertical-align:middle"><div style="width:${Math.min(100,count/total*100)}%;height:100%;background:var(--accent);border-radius:3px"></div></div> <span style="font-size:.72rem;color:var(--text2)">${count}/${total}</span>` : `${count}`;
+    const isMe = row.email === myEmail;
+    const pctC = pct>=80?'var(--accent)':pct>=50?'var(--orange)':'var(--error)';
+    html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03);background:${isMe?'rgba(34,214,138,.08)':'transparent'}"><td style="padding:8px 4px;font-weight:700">${r<=3&&r>0?medals[r-1]:r}</td><td style="padding:8px 4px;${isMe?'font-weight:800;color:var(--accent)':''}">${esc(name)}</td><td style="padding:8px 4px;text-align:right;font-weight:700;color:var(--accent)">${row.totalPoints}</td><td style="padding:8px 4px;text-align:right;font-weight:700;color:${pctC}">${pct}%</td><td style="padding:8px 4px;text-align:right">${bar}</td><td style="padding:8px 4px;text-align:right;color:var(--text2);font-family:var(--mono);font-size:.78rem">${temps>0?formatTime(temps):'—'}</td></tr>`;
+  });
+  html += '</table>';
+  content.innerHTML = html;
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+function init(){
+  renderScreen(); renderNav();
+  showEmailModal();   // ← TOUJOURS, même si un email est mémorisé
+}
+init();
+</script>
+</body>
+</html>
